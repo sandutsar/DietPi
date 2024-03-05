@@ -4,7 +4,7 @@
 	<br><br>
 	optimised • simplified • for everyone
 	<br><br>
-	<a href="https://dietpi.com/" target="_blank" rel="noopener">Website</a> • <a href="https://dietpi.com/#download" target="_blank" rel="noopener">Downloads</a> • <a href="https://dietpi.com/docs/" target="_blank" rel="noopener">Documentation</a> • <a href="https://dietpi.com/phpbb/" target="_blank" rel="noopener">Forum</a> • <a href="https://dietpi.com/blog/" target="_blank" rel="noopener">Blog</a>
+	<a href="https://dietpi.com/" target="_blank" rel="noopener">Website</a> • <a href="https://dietpi.com/#download" target="_blank" rel="noopener">Downloads</a> • <a href="https://dietpi.com/docs/" target="_blank" rel="noopener">Documentation</a> • <a href="https://dietpi.com/forum/" target="_blank" rel="noopener">Forum</a> • <a href="https://dietpi.com/blog/" target="_blank" rel="noopener">Blog</a>
 </p>
 <hr>
 <p align="center">
@@ -15,7 +15,7 @@
 
 ## Introduction
 
-DietPi is an extremely lightweight Debian-based OS. It is highly optimised for minimal CPU and RAM resource usage, ensuring your SBC always runs at its maximum potential. 
+DietPi is an extremely lightweight Debian-based OS. It is highly optimised for minimal CPU and RAM resource usage, ensuring your SBC always runs at its maximum potential.
 
 The **dietpi programs** use lightweight whiptail menus. You'll spend more time enjoying DietPi and applications you need and less time staring at the command line.
 
@@ -26,6 +26,8 @@ Use `dietpi-services` to control which installed software has higher or lower pr
 `dietpi-update` automatically checks for updates and informs you when they are available. Update instantly, without having to write a new image. **DietPi automation** allows you to completely automate a DietPi installation with no user input, simply by configuring `dietpi.txt` before powering on.
 
 ## The DietPi Project Team
+
+The full list of code contributors can be viewed [here](https://github.com/MichaIng/DietPi/graphs/contributors).
 
 ### Contributors
 
@@ -39,7 +41,7 @@ Project lead (20/02/2019 and onwards), source code contributor, bug fixes, softw
 
 Project founder and previous project lead (19/02/2019 and previous), source code contributor and tester.
 
-#### [JohnVick](https://dietpi.com/phpbb/memberlist.php?mode=viewprofile&u=575)
+#### [JohnVick](https://dietpi.com/forum/u/johnvick/summary)
 
 _Joined 2016-06-08_
 
@@ -49,7 +51,7 @@ DietPi forum co-administrator, management, support, testing and valuable feedbac
 
 _Joined 2017-07-26_
 
-Creator and maintainer of the Clonezilla based installer images for x86_64 UEFI systems.
+Creator and maintainer of the first Clonezilla based installer images for x86_64 UEFI systems.
 
 #### [Joulinar](https://github.com/Joulinar)
 
@@ -79,13 +81,13 @@ Source code contributor, creator of the [DietPi-Dashboard](https://github.com/ra
 
 _Joined 2018-04-16_
 
-Creator and maintainer of the [DietPi Hyper-V images](https://github.com/yumiris/DietPi.Hyper-V).
+Creator and maintainer of the first [DietPi Hyper-V images](https://github.com/yumiris/DietPi.Hyper-V).
 
 ---
 
 ### Collaborations
 
-#### DietPi + [Amiberry](https://github.com/midwan/amiberry)
+#### DietPi + [Amiberry](https://github.com/BlitterStudio/amiberry)
 
 _Since 2016-09-02_
 
@@ -102,7 +104,7 @@ _Joined 2016-01-01_
 
 Contributions to the DietPi in general, in-depth testing, bug finding and valuable feedback, forum moderator.
 
-#### [ZombieVirus](https://dietpi.com/phpbb/memberlist.php?username=ZombieVirus)
+#### [ZombieVirus](https://dietpi.com/forum/u/zombievirus/summary)
 
 _Joined 2016-03-20_
 
@@ -130,7 +132,7 @@ Contributions to the DietPi in general, including source code and VirtualBox ima
 
 _Joined 2016-10-01_
 
-Created the DietPi image for NanoPi M3/T3.
+Created the first DietPi image for NanoPi M3/T3.
 
 ---
 
@@ -149,20 +151,20 @@ Are you able to:
 - Contribute to DietPi with programming on GitHub?
 - Suggest new software that we can add to the `dietpi-software` install system?
 
-If so, let us know!  
+If so, let us know!
 We are always looking for talented people who believe in the DietPi project, and, wish to contribute in any way you can.
 
-- Send me an Email: micha@dietpi.com
-- Join our forum: https://dietpi.com/phpbb/
-- GitHub: https://github.com/MichaIng/DietPi
+- Send us an email: <micha@dietpi.com>
+- Join our forum: <https://dietpi.com/forum/>
+- GitHub: <https://github.com/MichaIng/DietPi>
 
 Also read our [contribute page](https://dietpi.com/contribute.html) for an overview of way to support DietPi.
 
 ## License
 
-DietPi Copyright (C) 2020 MichaIng
-- Email micha@dietpi.com
-- Web https://dietpi.com/
+DietPi Copyright (C) 2023 [Contributors](https://github.com/MichaIng/DietPi/graphs/contributors)
+- Email: <micha@dietpi.com>
+- Website: <https://dietpi.com/>
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -174,7 +176,7 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with this program.  If not, see https://www.gnu.org/licenses/
+along with this program.  If not, see <https://www.gnu.org/licenses/>
 
 ## Links
 
@@ -182,7 +184,6 @@ along with this program.  If not, see https://www.gnu.org/licenses/
 
 - Source: https://github.com/MichaIng/DietPi
 - Build: Not applicable, as DietPi uses Bash scripts only, no building or compiling is required.
-- [![CodeFactor](https://www.codefactor.io/repository/github/michaing/dietpi/badge)](https://www.codefactor.io/repository/github/michaing/dietpi)
 
 ### DietPi Files
 
@@ -229,9 +230,9 @@ Links to hardware and software manufacturers, sources and build instructions use
 - [Nextcloud](https://github.com/nextcloud/server)
 - [ownCloud](https://github.com/owncloud/core)
 - [Syncthing](https://github.com/syncthing/syncthing)
-- [MiniDLNA](https://sourceforge.net/p/minidlna/git/ci/master/tree/)
+- [ReadyMedia](https://sourceforge.net/p/minidlna/git/ci/master/tree/)
 - [MPD](https://github.com/MusicPlayerDaemon/MPD)
-- [YMPD](https://github.com/notandy/ympd)
+- [ympd](https://github.com/notandy/ympd)
 - [myMPD](https://github.com/jcorporation/myMPD)
 - [Apache](https://github.com/apache)
 - [Nginx](https://hg.nginx.org/nginx/)
@@ -242,6 +243,7 @@ Links to hardware and software manufacturers, sources and build instructions use
 - [phpMyAdmin](https://github.com/phpmyadmin)
 - [Certbot](https://github.com/certbot/certbot)
 - [Pi-hole](https://github.com/pi-hole/pi-hole)
+- [WordPress](https://github.com/wordpress/wordpress)
 - [phpBB](https://github.com/phpbb/phpbb)
 - [ProFTPD](https://github.com/proftpd/proftpd)
 - [vsftpd](https://security.appspot.com/vsftpd.html)
@@ -252,29 +254,28 @@ Links to hardware and software manufacturers, sources and build instructions use
 - [OpenVPN](https://github.com/OpenVPN)
 - [PiVPN](https://github.com/pivpn/pivpn)
 - [WireGuard](https://www.wireguard.com/)
-- [Amiberry](https://github.com/midwan/amiberry)
-- [RetroPie Setup Script](https://github.com/petrockblog/RetroPie-Setup)
+- [Amiberry](https://github.com/BlitterStudio/amiberry)
 - [OpenTyrian](https://bitbucket.org/opentyrian/opentyrian/wiki/Home)
-- [RPi Cam Control](https://github.com/silvanmelchior/RPi_Cam_Web_Interface)
+- [RPi Cam Web Interface](https://github.com/silvanmelchior/RPi_Cam_Web_Interface)
 - [Deluge](https://dev.deluge-torrent.org/wiki/Development#SourceCode)
 - [Airsonic-Advanced](https://github.com/airsonic-advanced/airsonic-advanced)
 - [Logitech Media Server](https://github.com/Logitech/slimserver)
 - [Squeezelite](https://github.com/ralph-irving/squeezelite)
 - [Ampache](https://github.com/ampache/ampache)
 - [Plex Media Server](https://www.plex.tv/)
+- [Tautulli](https://github.com/Tautulli/Tautulli)
 - [FFmpeg](https://github.com/FFmpeg/FFmpeg)
-- [Shairport-Sync](https://github.com/mikebrady/shairport-sync)
+- [Shairport Sync](https://github.com/mikebrady/shairport-sync)
 - [FreshRSS](https://github.com/FreshRSS/FreshRSS)
 - [Folding@Home](https://github.com/FoldingAtHome)
-- [OpenBazaar](https://github.com/OpenBazaar/openbazaar-go)
 - [Medusa](https://github.com/pymedusa/Medusa)
 - [Grafana](https://github.com/grafana/grafana)
 - [Clonezilla](https://gitlab.com/stevenshiau/clonezilla)
 - [Gitea](https://github.com/go-gitea/gitea)
+- [Gogs](https://github.com/gogs/gogs)
 - [Home Assistant](https://github.com/home-assistant/core)
 - [TasmoAdmin](https://github.com/reloxx13/TasmoAdmin)
 - [Domoticz](https://github.com/domoticz/domoticz)
-- [Firefox Sync Server](https://github.com/mozilla-services/syncserver)
 - [Jellyfin](https://github.com/jellyfin/jellyfin)
 - [Komga](https://github.com/gotson/komga)
 - [HTPC Manager](https://github.com/HTPC-Manager/HTPC-Manager)
@@ -310,6 +311,34 @@ Links to hardware and software manufacturers, sources and build instructions use
 - [File Browser](https://github.com/filebrowser/filebrowser)
 - [Spotifyd](https://github.com/Spotifyd/spotifyd)
 - [DietPi-Dashboard](https://github.com/ravenclaw900/dietpi-dashboard)
+- [MicroK8s](https://github.com/canonical/microk8s)
+- [Allo GUI](https://github.com/MichaIng/DietPi-AlloGUI)
+- [PHP Composer](https://github.com/composer/composer)
+- [motionEye](https://github.com/motioneye-project/motioneye)
+- [Sonarr](https://github.com/Sonarr/Sonarr)
+- [Radarr](https://github.com/Radarr/Radarr)
+- [Lidarr](https://github.com/Lidarr/Lidarr)
+- [Prowlarr](https://github.com/Prowlarr/Prowlarr)
+- [Readarr](https://github.com/Readarr/Readarr)
+- [Jackett](https://github.com/Jackett/Jackett)
+- [HAProxy](https://github.com/haproxy/haproxy)
+- [Prometheus Node Exporter](https://github.com/prometheus/node_exporter)
+- [Prometheus RPi Exporter](https://github.com/fahlke/raspberrypi_exporter)
+- [Tailscale](https://github.com/tailscale/tailscale)
+- [Rclone](https://github.com/rclone/rclone)
+- [ZeroTier](https://github.com/zerotier/ZeroTierOne)
+- [Navidrome](https://github.com/navidrome/navidrome)
+- [Homer](https://github.com/bastienwirtz/homer)
+- [microblog.pub](https://git.sr.ht/~tsileo/microblog.pub)
+- [Nukkit](https://github.com/CloudburstMC/Nukkit)
+- [openHAB](https://github.com/openhab)
+- [Moonlight (CLI)](https://github.com/moonlight-stream/moonlight-embedded)
+- [Moonlight (GUI)](https://github.com/moonlight-stream/moonlight-qt)
+- [Restic](https://github.com/restic/restic)
+- [MediaWiki](https://github.com/wikimedia/mediawiki)
+- [Homebridge](https://github.com/homebridge/homebridge)
+- [ADS-B Feeder](https://github.com/dirkhh/adsb-feeder-image)
+- [Kavita](https://github.com/Kareadita/Kavita)
 
 ---
 

@@ -35,7 +35,7 @@
 	[[ $1 == 1 ]] && INPUT=1 || INPUT=0
 
 	readonly FP_UPLOAD="$G_HW_UUID.txt"
-	readonly SFTP_ADDR='ssh.dietpi.com'
+	readonly SFTP_ADDR='ssh.dietpi.com:29248'
 	readonly SFTP_USER='dietpi-survey'
 	readonly SFTP_PASS='upload2dietpi'
 
@@ -78,18 +78,13 @@ _EOF_
 		(( $G_HW_MODEL < 10 )) && echo "((aRASPBIAN[$G_RASPBIAN]++))" >> "$FP_UPLOAD"
 
 		# DietPi-Software installs
-		if [[ -f '/boot/dietpi/.installed' ]]
-		then
-			echo -e '# -------------------------\n# DietPi-Software installs\n# -------------------------' >> "$FP_UPLOAD"
+		[[ -f '/boot/dietpi/.installed' ]] && while read -r software
+		do
+			software=${software##*[}
+			software=${software%%]*}
+			disable_error=1 G_CHECK_VALIDINT "$software" && echo "((aSOFTWARE[\${aSOFTWARE_NAME${G_DIETPI_VERSION_CORE}_${G_DIETPI_VERSION_SUB}[$software]:=$software}]++))" >> "$FP_UPLOAD"
 
-			while read -r software
-			do
-				software=${software##*[}
-				software=${software%%]*}
-				disable_error=1 G_CHECK_VALIDINT "$software" && echo "((aSOFTWARE[\${aSOFTWARE_NAME${G_DIETPI_VERSION_CORE}_${G_DIETPI_VERSION_SUB}[$software]:=$software}]++))" >> "$FP_UPLOAD"
-
-			done < <(grep ']=2$' /boot/dietpi/.installed)
-		fi
+		done < <(grep ']=2$' /boot/dietpi/.installed)
 
 		# DietPi-Benchmark results
 		[[ -f '/var/lib/dietpi/dietpi-benchmark/results' ]] && cat /var/lib/dietpi/dietpi-benchmark/results >> "$FP_UPLOAD"
@@ -98,15 +93,23 @@ _EOF_
 
 	Send_File(){
 
+		# Validate file name
+		[[ $FP_UPLOAD =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.txt$ ]] || { G_DIETPI-NOTIFY 1 "Skipping sending/purging survey data as the survey UUID \"${FP_UPLOAD%.txt}\" is invalid..."; return 1; }
+
 		# Check if our ssh.dietpi.com SSH host key is present
-		if [[ ! -f '/root/.ssh/known_hosts' ]] || ! grep -q '^ssh.dietpi.com[[:blank:]]' /root/.ssh/known_hosts
+		if [[ ! -f '/root/.ssh/known_hosts' ]] || ! grep -Eq '^\[?ssh.dietpi.com(]:29248)?[[:blank:]]' /root/.ssh/known_hosts
 		then
 			# If missing, offer to re-add it
-			if G_WHIP_YESNO '[WARNING] ssh.dietpi.com SSH host key is missing\nOur ssh.dietpi.com SSH host key, required to send or purge survey data and bug reports, is missing in /root/.ssh/known_hosts. Shall we re-create it to proceed with sending/purging the bug report?'
+			if G_WHIP_YESNO '[WARNING] ssh.dietpi.com SSH host key is missing\n\nOur ssh.dietpi.com SSH host key, required to send or purge survey data and bug reports, is missing in /root/.ssh/known_hosts. Shall we re-create it to proceed with sending/purging the bug report?'
 			then
 				[[ -d '/root/.ssh' ]] || G_EXEC mkdir /root/.ssh
 				[[ -f '/root/.ssh/known_hosts' ]] || > /root/.ssh/known_hosts
-				G_CONFIG_INJECT 'ssh.dietpi.com[[:blank:]]' 'ssh.dietpi.com ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDE6aw3r6aOEqendNu376iiCHr9tGBIWPgfrLkzjXjEsHGyVSUFNnZt6pftrDeK7UX+qX4FxOwQlugG4fymOHbimRCFiv6cf7VpYg1Ednquq9TLb7/cIIbX8a6AuRmX4fjdGuqwmBq3OG7ZksFcYEFKt5U4mAJIaL8hXiM2iXjgY02LqiQY/QWATsHI4ie9ZOnwrQE+Rr6mASN1BVFuIgyHIbwX54jsFSnZ/7CdBMkuAd9B8JkxppWVYpYIFHE9oWNfjh/epdK8yv9Oo6r0w5Rb+4qaAc5g+RAaknHeV6Gp75d2lxBdCm5XknKKbGma2+/DfoE8WZTSgzXrYcRlStYN' /root/.ssh/known_hosts
+				if (( $G_DISTRO < 7 ))
+				then
+					G_CONFIG_INJECT '\[?ssh.dietpi.com(]:29248)?[[:blank:]]' '[ssh.dietpi.com]:29248 ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDE6aw3r6aOEqendNu376iiCHr9tGBIWPgfrLkzjXjEsHGyVSUFNnZt6pftrDeK7UX+qX4FxOwQlugG4fymOHbimRCFiv6cf7VpYg1Ednquq9TLb7/cIIbX8a6AuRmX4fjdGuqwmBq3OG7ZksFcYEFKt5U4mAJIaL8hXiM2iXjgY02LqiQY/QWATsHI4ie9ZOnwrQE+Rr6mASN1BVFuIgyHIbwX54jsFSnZ/7CdBMkuAd9B8JkxppWVYpYIFHE9oWNfjh/epdK8yv9Oo6r0w5Rb+4qaAc5g+RAaknHeV6Gp75d2lxBdCm5XknKKbGma2+/DfoE8WZTSgzXrYcRlStYN' /root/.ssh/known_hosts
+				else
+					G_CONFIG_INJECT '\[?ssh.dietpi.com(]:29248)?[[:blank:]]' '[ssh.dietpi.com]:29248 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJdEPlagpQ+RVHNOX3jkG1Bya7Oza1dAke8h8NszVW84' /root/.ssh/known_hosts
+				fi
 			else
 				G_DIETPI-NOTIFY 1 'Skipping sending/purging survey data as our ssh.dietpi.com SSH host key is missing in /root/.ssh/known_hosts...'
 				return 1
@@ -125,7 +128,7 @@ _EOF_
 		local timeout=$(sed -n '/^[[:blank:]]*CONFIG_G_CHECK_URL_TIMEOUT=/{s/^[^=]*=//p;q}' /boot/dietpi.txt) G_EXEC_DESC='Sending survey data'
 		(( $OPTED_IN )) || G_EXEC_DESC='Purging survey data'
 		# - Timeout x2 for DNS resolving + connection, upload itself is done in no time
-		G_EXEC_NOHALT=1 G_EXEC curl --key '' -m $(( ${timeout:-5} * 2 )) -sT "$FP_UPLOAD" "sftp://$SFTP_USER:$SFTP_PASS@$SFTP_ADDR/survey/"
+		G_EXEC_NOHALT=1 G_EXEC curl -m $(( ${timeout:-5} * 2 )) -sT "$FP_UPLOAD" "sftp://$SFTP_USER:$SFTP_PASS@$SFTP_ADDR/survey/"
 		return $?
 
 	}
@@ -152,7 +155,6 @@ _EOF_
 			'Show' ': Show me the upload file content'
 			'1' ': Opt IN and upload data'
 			'0' ': Opt OUT and purge uploaded data'
-
 		)
 
 		G_WHIP_DEFAULT_ITEM=$OPTED_IN

@@ -1,4 +1,4 @@
-#!/bin/dash
+#!/bin/dash -e
 {
 	#////////////////////////////////////
 	# DietPi Raspimjpeg control Script
@@ -8,37 +8,26 @@
 	#
 	# Info:
 	# - Location: /var/lib/dietpi/dietpi-software/installed/raspimjpeg.sh
-	# - Allows service control for Raspimjpeg and PHP schedule, used by RPi Cam Control
+	# - Allows service control for RaspiMJPEG and PHP schedule, used by RPi Cam Web Interface
 	# - Called from /etc/systemd/system/raspimjpeg.service
 	#
 	#////////////////////////////////////
 
-	Raspimjeg_Stop(){
-
-		killall -qw php raspimjpeg
-
-	}
-
-	Raspimjeg_Start(){
-
-		mkdir -p /dev/shm/mjpeg
+	Raspimjeg_Start()
+	{
+		[ -d '/dev/shm/mjpeg' ] || mkdir /dev/shm/mjpeg
 		chown www-data:video /dev/shm/mjpeg
 		chmod 770 /dev/shm/mjpeg
 		sudo -u www-data raspimjpeg &
 		sleep 4
 		sudo -u www-data php /var/www/rpicam/schedule.php &
-
 	}
 
-	if [ "$1" = 'stop' ]; then
-
-		Raspimjeg_Stop
-
-	elif [ "$1" = 'start' ]; then
-
-		Raspimjeg_Start
-
-	fi
+	case $1 in
+		'stop') killall -qw php raspimjpeg;;
+		'start') Raspimjeg_Start;;
+		*) echo "ERROR: Invalid argument: \"$1\"" >&2; exit 1;;
+	esac
 
 	exit 0
 }

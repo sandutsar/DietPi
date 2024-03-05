@@ -1,30 +1,53 @@
 #!/bin/bash
 # Created by MichaIng / micha@dietpi.com / dietpi.com
 {
+##########################################
 # Load DietPi-Globals
-. /boot/dietpi/func/dietpi-globals
+##########################################
+if [[ -f '/boot/dietpi/func/dietpi-globals' ]]
+then
+	. /boot/dietpi/func/dietpi-globals
+else
+	curl -sSf "https://raw.githubusercontent.com/${G_GITOWNER:=MichaIng}/DietPi/${G_GITBRANCH:=master}/dietpi/func/dietpi-globals" -o /tmp/dietpi-globals || exit 1
+	# shellcheck disable=SC1091
+	. /tmp/dietpi-globals
+	G_EXEC_NOHALT=1 G_EXEC rm /tmp/dietpi-globals
+	export G_GITOWNER G_GITBRANCH G_HW_ARCH_NAME=$(uname -m)
+	# shellcheck disable=SC2015
+	[[ $(</etc/debian_version) =~ ^('12.'|'bookworm/sid')$ ]] && export G_DISTRO=7 || export G_DISTRO=6 # Ubuntu Jammy comes with "bookworm/sid"
+fi
+case $G_HW_ARCH_NAME in
+	'armv6l') export G_HW_ARCH=1;;
+	'armv7l') export G_HW_ARCH=2;;
+	'aarch64') export G_HW_ARCH=3;;
+	'x86_64') export G_HW_ARCH=10;;
+	'riscv64') export G_HW_ARCH=11;;
+	*) G_DIETPI-NOTIFY 1 "Unsupported host system architecture \"$G_HW_ARCH_NAME\" detected, aborting..."; exit 1;;
+esac
 readonly G_PROGRAM_NAME='DietPi-Build'
 G_CHECK_ROOT_USER
 G_CHECK_ROOTFS_RW
 readonly FP_ORIGIN=$PWD # Store origin dir
 G_INIT
 G_EXEC cd "$FP_ORIGIN" # Process everything in origin dir instead of /tmp/$G_PROGRAM_NAME
-G_EXIT_CUSTOM(){
-	findmnt -M "$FP_ORIGIN/rootfs" &> /dev/null && G_EXEC umount -R "$FP_ORIGIN/rootfs"
-	[[ -d $FP_ORIGIN/rootfs ]] && G_EXEC rmdir "$FP_ORIGIN/rootfs"
-	losetup /dev/loop0 &> /dev/null && G_EXEC losetup -d /dev/loop0
-	(( $mask_dbus )) && G_EXEC systemctl mask --now dbus dbus.socket
-}
 
-# Inputs
+##########################################
+# Process inputs
+##########################################
 HW_MODEL=
 HW_ARCH=
-DISTRO=6 # 6=Bullseye, 7=Bookworm
+DISTRO=7 # 6=Bullseye, 7=Bookworm, 8=Trixie
 PTTYPE='msdos'
 FSTYPE='ext4'
 ITYPE=
 VMTYPE=
 GITBRANCH='master'
+GITOWNER='MichaIng'
+EDITION=
+SUFFIX=
+ADD_DOS_PART=1
+SIGN_PASS=
+RPI_NEW=0
 while (( $# ))
 do
 	case $1 in
@@ -36,188 +59,374 @@ do
 		'-i') ITYPE='Installer';;
 		'-v') shift; VMTYPE=$1;;
 		'-b') shift; GITBRANCH=$1;;
+		'-o') shift; GITOWNER=$1;;
+		'-e') shift; EDITION=$1;;
+		'-s') shift; SUFFIX=$1;;
+		'--no-dos-part') ADD_DOS_PART=0;;
+		'--sign') shift; SIGN_PASS=$1;;
+		'--rpi-new') RPI_NEW=1;;
 		*) G_DIETPI-NOTIFY 1 "Invalid input \"$1\", aborting..."; exit 1;;
 	esac
 	shift
 done
 
 # Check for valid target hardware model and set variables accordingly
-WIFI_REQUIRED=1
 partition_start=1
-efi_size=64
+efi_size=0
 boot_size=0
 root_size=1023
+boot_fstype='fat32'
 CLONING_TOOL='dd'
 case $HW_MODEL in
-	0) iname='RPi' partition_start=4 boot_size=128 root_size=892;;
-	15) iname='OdroidN2' partition_start=4 root_size=768;;
-	20) iname='VM' WIFI_REQUIRED=0 VMTYPE=${VMTYPE:-raw};;
+	0) iname='RPi' HW_ARCH=${HW_ARCH:-1} boot_size=128 root_size=895;;
+	1) iname='RPi1' HW_ARCH=1 boot_size=128 root_size=895;;
+	2) iname='RPi2' HW_ARCH=2 boot_size=128 root_size=895;;
+	4) iname='RPi234' HW_ARCH=3 boot_size=128 root_size=895;;
+	5) iname='RPi5' HW_ARCH=3 boot_size=128 root_size=895;;
+	10) iname='OdroidC1' HW_ARCH=2 partition_start=4 boot_size=128 root_size=700 boot_fstype='fat16';;
+	11) iname='OdroidXU4' HW_ARCH=2 partition_start=4 root_size=764;;
+	12) iname='OdroidC2' HW_ARCH=3 partition_start=4 root_size=892;;
+	15) iname='OdroidN2' HW_ARCH=3 partition_start=4 root_size=892;;
+	16) iname='OdroidC4' HW_ARCH=3 partition_start=4 root_size=892;;
+	20) iname='VM' HW_ARCH=${HW_ARCH:-10} VMTYPE=${VMTYPE:-raw};;
 	21) iname='NativePC-BIOS' HW_ARCH=10 root_size=1215;;
+	40) iname='PINEA64' HW_ARCH=3 partition_start=4 root_size=892;;
+	42) iname='ROCKPro64' HW_ARCH=3 partition_start=16 root_size=880;;
+	43) iname='ROCK64' HW_ARCH=3 partition_start=16 root_size=880;;
+	44) iname='Pinebook' HW_ARCH=3 partition_start=4 root_size=892;;
+	45) iname='PINEH64' HW_ARCH=3 partition_start=4 root_size=892;;
+	46) iname='PinebookPro' HW_ARCH=3 partition_start=16 root_size=880;;
+	47) iname='NanoPiR4S' HW_ARCH=3 partition_start=16 root_size=880;;
+	48) iname='NanoPiR1' HW_ARCH=2 partition_start=4 root_size=764;;
+	'49.1') iname='Quartz64A' HW_ARCH=3 partition_start=16 root_size=752;;
+	'49.2') iname='Quartz64B' HW_ARCH=3 partition_start=16 root_size=752;;
+	'49.3') iname='SOQuartz' HW_ARCH=3 partition_start=16 root_size=752;;
+	52) iname='ASUSTB' HW_ARCH=2 partition_start=4 root_size=764;;
+	54) iname='NanoPiK2' HW_ARCH=3 partition_start=4 root_size=892;;
+	55) iname='NanoPiR2S' HW_ARCH=3 partition_start=16 root_size=880;;
+	56) iname='NanoPiNEO3' HW_ARCH=3 partition_start=16 root_size=880;;
+	57) iname='NanoPiNEOPlus2' HW_ARCH=3 partition_start=4 root_size=892;;
+	58) iname='NanoPiM4V2' HW_ARCH=3 partition_start=16 root_size=880;;
+	59) iname='ZeroPi' HW_ARCH=2 partition_start=4 root_size=764;;
+	60) iname='NanoPiNEO' HW_ARCH=2 partition_start=4 root_size=764;;
+	61) iname='NanoPiM2' HW_ARCH=2 partition_start=4 boot_size=64 root_size=572 boot_fstype='ext4';;
+	'62.1') iname='NanoPiM3' HW_ARCH=3 partition_start=4 root_size=700;;
+	'62.2') iname='NanoPiFire3' HW_ARCH=3 partition_start=4 root_size=700;;
+	63) iname='NanoPiM1' HW_ARCH=2 partition_start=4 root_size=764;;
+	64) iname='NanoPiNEOAir' HW_ARCH=2 partition_start=4 root_size=764;;
+	'65.1') iname='NanoPiNEO2' HW_ARCH=3 partition_start=4 root_size=892;;
+	'65.2') iname='NanoPiNEO2Black' HW_ARCH=3 partition_start=4 root_size=892;;
+	66) iname='NanoPiM1Plus' HW_ARCH=2 partition_start=4 root_size=764;;
+	67) iname='NanoPiK1Plus' HW_ARCH=3 partition_start=4 root_size=892;;
+	'68.1') iname='NanoPiM4' HW_ARCH=3 partition_start=16 root_size=880;;
+	'68.2') iname='NanoPCT4' HW_ARCH=3 partition_start=16 root_size=880;;
+	'68.3') iname='NanoPiNEO4' HW_ARCH=3 partition_start=16 root_size=880;;
+	70) iname='SparkySBC' HW_ARCH=2 partition_start=8 boot_size=48 root_size=712 boot_fstype='fat16';;
+	'72.1') iname='ROCKPi4' HW_ARCH=3 partition_start=16 root_size=1008;;
+	'72.2') iname='ROCK4SE' HW_ARCH=3 partition_start=16 root_size=1008;;
+	73) iname='ROCKPiS' HW_ARCH=3 partition_start=16 root_size=880;;
+	74) iname='RadxaZero' HW_ARCH=3 partition_start=4 root_size=892;;
+	75) iname='Container' HW_ARCH=${HW_ARCH:-10} root_size=447;;
+	'76.1') iname='NanoPiR5S' HW_ARCH=3 PTTYPE='gpt' partition_start=16 root_size=1008;;
+	'76.2') iname='NanoPiR5C' HW_ARCH=3 PTTYPE='gpt' partition_start=16 root_size=1008;;
+	77) iname='ROCK3A' HW_ARCH=3 PTTYPE='gpt' partition_start=16 root_size=880;;
+	78) iname='ROCK5B' HW_ARCH=3 PTTYPE='gpt' partition_start=16 root_size=880;;
+	'79.1') iname='NanoPiR6S' HW_ARCH=3 PTTYPE='gpt' partition_start=16 root_size=880;;
+	'79.2') iname='NanoPiR6C' HW_ARCH=3 PTTYPE='gpt' partition_start=16 root_size=880;;
+	'79.3') iname='NanoPCT6' HW_ARCH=3 PTTYPE='gpt' partition_start=16 root_size=880;;
+	80) iname='OrangePi5' HW_ARCH=3 PTTYPE='gpt' partition_start=16 root_size=880;;
+	81) iname='VisionFive2' HW_ARCH=11 root_size=639;;
+	82) iname='OrangePi5Plus' HW_ARCH=3 PTTYPE='gpt' partition_start=16 root_size=880;;
+	'83.1') iname='OrangePiZero3' HW_ARCH=3 partition_start=4 root_size=1020;;
+	'83.2') iname='OrangePiZero3-1.5G' HW_ARCH=3 partition_start=4 root_size=1020;;
+	84) iname='Star64' HW_ARCH=11 root_size=639;;
+	85) iname='ROCK5A' HW_ARCH=3 PTTYPE='gpt' partition_start=16 root_size=880;;
+	86) iname='ASUSTB2' HW_ARCH=3 partition_start=16 root_size=880;;
+	87) iname='OrangePi3B' HW_ARCH=3 PTTYPE='gpt' partition_start=16 root_size=880;;
 	*) G_DIETPI-NOTIFY 1 "Invalid hardware model \"$HW_MODEL\" passed, aborting..."; exit 1;;
 esac
 
 if [[ $VMTYPE ]]
 then
-	[[ $HW_MODEL == 20 ]] || { G_DIETPI-NOTIFY 1 "Invalid option \"-v\" (virtual machine type) for hardware model \"$HW_MODEL\", aborting..."; exit 1; }
-	[[ $VMTYPE =~ ^(vbox|vmware|hyperv|all)$ ]] || { G_DIETPI-NOTIFY 1 "Invalid virtual machine type \"$VMTYPE\" passed, aborting..."; exit 1; }
+	[[ $HW_MODEL == 20 ]] || { G_DIETPI-NOTIFY 1 "Unsupported option \"-v\" (virtual machine type) for hardware model \"$HW_MODEL\" passed, aborting..."; exit 1; }
+	[[ $VMTYPE =~ ^(raw|vbox|vmx|esxi|hyperv|utm|proxmox|all)$ ]] || { G_DIETPI-NOTIFY 1 "Invalid virtual machine type \"$VMTYPE\" passed, aborting..."; exit 1; }
 fi
+
+[[ $EDITION =~ ^(|Amiberry|AlloGUI|all)$ ]] || { G_DIETPI-NOTIFY 1 "Invalid edition \"$EDITION\" passed, aborting..."; exit 1; }
 
 # Check for valid target architecture and set variables accordingly
 repo='https://deb.debian.org/debian/'
 keyring='/usr/share/keyrings/debian-archive-keyring.gpg'
 case $HW_ARCH in
-	1) iarch='ARMv6' parch='armhf' repo='http://raspbian.raspberrypi.org/raspbian/' keyring='/usr/share/keyrings/raspbian-archive-keyring.gpg';;
+	1) iarch='ARMv6' parch='armhf' repo='http://raspbian.raspberrypi.com/raspbian/' keyring='/usr/share/keyrings/raspbian-archive-keyring.gpg';;
 	2) iarch='ARMv7' parch='armhf';;
 	3) iarch='ARMv8' parch='arm64';;
 	10) iarch='x86_64' parch='amd64';;
+	11) iarch='RISC-V' parch='riscv64' DISTRO=8;; # RISC-V architecture is available on Sid only, but internally DietPi handles it as Trixie
 	*) G_DIETPI-NOTIFY 1 "Invalid architecture \"$HW_ARCH\" passed, aborting..."; exit 1;;
 esac
 
 exclude=
 case $DISTRO in
-	6) distro='bullseye';;
-	7) distro='bookworm' exclude=',gcc-10-base';;
+	6) distro='bullseye' exclude=',gcc-8-base,gcc-9-base';;
+	7|8)
+		exclude=',gcc-8-base,gcc-9-base,gcc-10-base,gcc-11-base'
+		[[ $DISTRO == 7 ]] && distro='bookworm' || distro='trixie' exclude+=',gcc-12-base,gcc-13-base'
+		[[ $HW_ARCH == 11 ]] && distro='sid' # RISC-V architecture is available on Sid only
+		# Raise root size where required
+		case $HW_MODEL in
+			1[256]|54|61|7[4569]) ((root_size+=128));;
+			21) ((root_size+=448));;
+			*) [[ $partition_start == 16 ]] && ((root_size+=128));; # 64-bit Rockchip SoCs
+		esac
+	;;
 	*) G_DIETPI-NOTIFY 1 "Invalid distro \"$DISTRO\" passed, aborting..."; exit 1;;
 esac
 
 case $PTTYPE in
-	'msdos') efi_size=0;;
-	'gpt') [[ $HW_ARCH == 10 ]] && iname='NativePC-UEFI' ITYPE='Installer';;
+	'msdos') :;;
+	'gpt') [[ $HW_MODEL == 21 ]] && efi_size=64 iname='NativePC-UEFI' ITYPE='Installer';;
 	*) G_DIETPI-NOTIFY 1 "Invalid partition table type \"$PTTYPE\" passed, aborting..."; exit 1;;
 esac
 
-apackages=()
+if (( $RPI_NEW ))
+then
+	(( $HW_MODEL < 10 && $DISTRO > 6 )) || { G_DIETPI-NOTIFY 1 "Invalid flag \"--rpi-new\" passed for hardware model \"$HW_MODEL\" or distro \"$DISTRO\" (${distro^}), aborting..."; exit 1; }
+
+elif (( $HW_MODEL && $HW_MODEL < 10 ))
+then
+	G_DIETPI-NOTIFY 1 "Invalid hardware model \"$HW_MODEL\" passed without flag \"--rpi-new\", aborting..."
+	exit 1
+fi
+
+# Do not add trailing FAT partitions for VM, container and (Clonezilla) installer images, and if there is a boot FAT partition already
+[[ $HW_MODEL == 20 || $HW_MODEL == 75 || $ITYPE == 'Installer' ]] && ADD_DOS_PART=0
+[[ $boot_size -gt 0 && $boot_fstype == 'fat'* ]] && ADD_DOS_PART=0
+
+fsname='' apackages=() afs_opts=() afsck=() aresize=()
 case $FSTYPE in
-	'ext4') apackages+=('e2fsprogs');;
-	'f2fs') apackages+=('f2fs-tools');;
-	'btrfs') apackages+=('btrfs-progs');;
+	'ext4') apackages+=('e2fsprogs') afs_opts=('-e' 'remount-ro') afsck=('e2fsck' '-fyD') aresize=('resize2fs');;
+	'f2fs') fsname='F2FS' apackages+=('f2fs-tools') afsck=('fsck.f2fs' '-f') aresize=('resize.f2fs'); uname -r | grep -q '-azure$' && apackages+=('linux-modules-extra-azure');;
+	'btrfs') fsname='Btrfs' apackages+=('btrfs-progs') afsck=('btrfs' 'check' '--repair') aresize=('btrfs' 'filesystem' 'resize' 'max'); ((root_size+=128));;
 	*) G_DIETPI-NOTIFY 1 "Invalid filesystem type \"$FSTYPE\" passed, aborting..."; exit 1;;
 esac
 
-G_CHECK_URL "https://github.com/MichaIng/DietPi/tree/$GITBRANCH" || { G_DIETPI-NOTIFY 1 "Failed to access Git branch \"$GITBRANCH\", aborting..."; exit 1; }
+G_CHECK_URL "https://github.com/$GITOWNER/DietPi/tree/$GITBRANCH" || { G_DIETPI-NOTIFY 1 "Failed to access Git branch \"$GITBRANCH\", aborting..."; exit 1; }
 
 # Image name
 OUTPUT_IMG_NAME="DietPi_$iname-$iarch-${distro^}"
+[[ $fsname ]] && OUTPUT_IMG_NAME+="_$fsname"
 [[ $ITYPE ]] && OUTPUT_IMG_NAME+="_$ITYPE"
+[[ $SUFFIX ]] && OUTPUT_IMG_NAME+="_$SUFFIX"
+# - x86_64 installer images
+if [[ $ITYPE == 'Installer' ]]
+then
+	[[ $HW_ARCH == 10 ]] || { G_DIETPI-NOTIFY 1 "Unsupported option \"-i\" (installer image) for architecture \"$HW_ARCH\" passed, aborting..."; exit 1; }
+	CLONING_TOOL='Clonezilla'
+fi
 
-# x86_64 installer images are packaged with Clonezilla
-[[ $ITYPE == 'Installer' ]] && CLONING_TOOL='Clonezilla'
-
-# EFI and boot partitions are FAT
-(( $efi_size || $boot_size )) && apackages+=('dosfstools')
+##########################################
+# Dependencies
+##########################################
+# EFI or FAT boot partition
+(( $efi_size )) || [[ $boot_size -gt 0 && $boot_fstype == 'fat'* ]] && apackages+=('dosfstools')
 
 # Emulation support in case of incompatible architecture
-(( ( $G_HW_ARCH < 10 && $G_HW_ARCH < $HW_ARCH ) || ( $G_HW_ARCH == 10 && $G_HW_ARCH != $HW_ARCH ) )) && apackages+=('qemu-user-static' 'binfmt-support')
+(( ( $G_HW_ARCH < 10 && $G_HW_ARCH < $HW_ARCH ) || ( ( $G_HW_ARCH == 10 || $G_HW_ARCH == 11 ) && $G_HW_ARCH != $HW_ARCH ) )) && apackages+=('qemu-user-static' 'binfmt-support')
 
 # Virtual machine disk conversion
 [[ $VMTYPE && $VMTYPE != 'raw' ]] && apackages+=('qemu-utils')
 
-# Dependencies
-G_AG_CHECK_INSTALL_PREREQ parted debootstrap dbus systemd-container "${apackages[@]}"
+G_AG_CHECK_INSTALL_PREREQ parted debootstrap dbus systemd-container xz-utils "${apackages[@]}"
+
+# Bootstrap archive keyring if missing
+if [[ ! -f $keyring ]]
+then
+	case $keyring in
+		*'raspbian'*) url='https://archive.raspbian.org/raspbian/pool/main/r/raspbian-archive-keyring/raspbian-archive-keyring_20120528.2_all.deb';;
+		*) url='https://deb.debian.org/debian/pool/main/d/debian-archive-keyring/debian-archive-keyring_2023.4_all.deb';;
+	esac
+	G_EXEC curl -sSf "$url" -o /tmp/keyring.deb
+	G_EXEC_OUTPUT=1 G_EXEC dpkg -i /tmp/keyring.deb
+	G_EXEC_NOHALT=1 G_EXEC rm /tmp/keyring.deb
+fi
+
+##########################################
+# Partitions and filesystems
+##########################################
+# Exit trap for cleanup
+G_EXIT_CUSTOM(){
+	findmnt -M "$FP_ORIGIN/rootfs" &> /dev/null && G_EXEC umount -R "$FP_ORIGIN/rootfs"
+	[[ -d $FP_ORIGIN/rootfs ]] && G_EXEC rmdir "$FP_ORIGIN/rootfs"
+	[[ $FP_LOOP ]] && losetup "$FP_LOOP" &> /dev/null && G_EXEC losetup -d "$FP_LOOP"
+	[[ -f $OUTPUT_IMG_NAME.img ]] && G_EXEC rm "$OUTPUT_IMG_NAME.img"
+}
 
 # Create image file
 G_EXEC fallocate -l "$((partition_start+efi_size+boot_size+root_size))M" "$OUTPUT_IMG_NAME.img"
 
-# GPT: Create EFI partition and set partition labels instead of types
+# GPT: Set partition labels instead of types
 if [[ $PTTYPE == 'gpt' ]]
 then
-	G_EXEC parted -s "$OUTPUT_IMG_NAME.img" unit MiB mklabel gpt mkpart 'EFI' fat32 $partition_start $((partition_start+efi_size)) set 1 esp on
-	# Create boot partition if set
-	(( $boot_size )) && G_EXEC parted -s "$OUTPUT_IMG_NAME.img" unit MiB mkpart 'boot' fat32 $((partition_start+efi_size)) $((partition_start+efi_size+boot_size))
-	# root partition
-	G_EXEC parted -s "$OUTPUT_IMG_NAME.img" unit MiB mkpart 'root' "$FSTYPE" $((partition_start+efi_size+boot_size)) 100%
+	# GPT partition table
+	G_EXEC parted -s "$OUTPUT_IMG_NAME.img" mklabel gpt
+	if (( $efi_size ))
+	then
+		# EFI partition
+		G_EXEC parted -s "$OUTPUT_IMG_NAME.img" unit MiB mkpart 'EFI' fat32 "$partition_start" $((partition_start+efi_size)) set 1 esp on
+		# root partition
+		G_EXEC parted -s "$OUTPUT_IMG_NAME.img" unit MiB mkpart 'root' "$FSTYPE" $((partition_start+efi_size)) 100%
+
+	elif (( $boot_size ))
+	then
+		# boot partition
+		G_EXEC parted -s "$OUTPUT_IMG_NAME.img" unit MiB mkpart 'boot' "$boot_fstype" "$partition_start" $((partition_start+boot_size))
+		# root partition
+		G_EXEC parted -s "$OUTPUT_IMG_NAME.img" unit MiB mkpart 'root' "$FSTYPE" $((partition_start+boot_size)) 100%
+	else
+		# root partition
+		G_EXEC parted -s "$OUTPUT_IMG_NAME.img" unit MiB mkpart 'root' "$FSTYPE" "$partition_start" 100%
+	fi
 
 # MBR: Set partition types instead of labels
 else
-	G_EXEC parted -s "$OUTPUT_IMG_NAME.img" unit MiB mklabel msdos
-	# Create boot partition if set
-	(( $boot_size )) && G_EXEC parted -s "$OUTPUT_IMG_NAME.img" unit MiB mkpart primary fat32 $((partition_start)) $((partition_start+boot_size))
+	# MBR partition table
+	G_EXEC parted -s "$OUTPUT_IMG_NAME.img" mklabel msdos
+	# boot partition
+	(( $boot_size )) && G_EXEC parted -s "$OUTPUT_IMG_NAME.img" unit MiB mkpart primary "$boot_fstype" "$partition_start" $((partition_start+boot_size))
 	# root partition
 	G_EXEC parted -s "$OUTPUT_IMG_NAME.img" unit MiB mkpart primary "$FSTYPE" $((partition_start+boot_size)) 100%
-	# x86_64: Set boot flag
+	# Set boot flag
 	G_EXEC parted -s "$OUTPUT_IMG_NAME.img" set 1 boot on
 fi
 
 # Create loop device
-G_EXEC losetup loop0 "$OUTPUT_IMG_NAME.img"
-G_EXEC partprobe /dev/loop0
-G_EXEC partx -u /dev/loop0
+FP_LOOP=$(losetup -f)
+G_EXEC losetup "$FP_LOOP" "$OUTPUT_IMG_NAME.img"
+G_EXEC partprobe "$FP_LOOP"
+G_EXEC partx -u "$FP_LOOP"
+
+# Obtain max FAT32 cluster size, which must have at least 65,525 clusters
+# $1: FAT filesystem size in MiB
+cluster_size()
+{
+	if (( $1 < 70 ))
+	then
+		echo 1
+	elif (( $1 < 140 ))
+	then
+		echo 2
+	elif (( $1 < 280 ))
+	then
+		echo 4
+	else
+		echo 8
+	fi
+}
 
 # Create and mount filesystems and fstab
 G_EXEC mkdir rootfs
-# + EFI + boot partition
-if [[ $PTTYPE == 'gpt' ]] && (( $boot_size ))
-then
-	FP_ROOT_DEV=3
-	G_EXEC mkfs.fat -F 32 /dev/loop0p1
-	G_EXEC mkfs.fat -F 32 /dev/loop0p2
-	G_EXEC "mkfs.$FSTYPE" /dev/loop0p3
-	G_EXEC mount /dev/loop0p3 rootfs
-	G_EXEC mkdir rootfs/boot
-	G_EXEC mount /dev/loop0p2 rootfs/boot
-	G_EXEC mkdir rootfs/boot/efi
-	G_EXEC mount /dev/loop0p1 rootfs/boot/efi
-	G_EXEC mkdir rootfs/etc
-	cat << _EOF_ > rootfs/etc/fstab
-PARTUUID=$(lsblk -no PARTUUID /dev/loop0p3) / $FSTYPE noatime,lazytime 0 1
-PARTUUID=$(lsblk -no PARTUUID /dev/loop0p2) /boot vfat noatime,lazytime 0 2
-PARTUUID=$(lsblk -no PARTUUID /dev/loop0p1) /boot/efi vfat noatime,lazytime 0 3
-_EOF_
 # + EFI partition
-elif [[ $PTTYPE == 'gpt' ]]
+if (( $efi_size ))
 then
 	FP_ROOT_DEV=2
-	G_EXEC mkfs.fat -F 32 /dev/loop0p1
-	G_EXEC "mkfs.$FSTYPE" /dev/loop0p2
-	G_EXEC mount /dev/loop0p2 rootfs
+	G_EXEC mkfs.fat -F 32 -S 512 -s "$(cluster_size "$efi_size")" "${FP_LOOP}p1"
+	G_EXEC "mkfs.$FSTYPE" "${afs_opts[@]}" "${FP_LOOP}p2"
+	G_EXEC mount "${FP_LOOP}p2" rootfs
 	G_EXEC mkdir -p rootfs/boot/efi
-	G_EXEC mount /dev/loop0p1 rootfs/boot/efi
+	G_EXEC mount "${FP_LOOP}p1" rootfs/boot/efi
 	G_EXEC mkdir rootfs/etc
 	cat << _EOF_ > rootfs/etc/fstab
-PARTUUID=$(lsblk -no PARTUUID /dev/loop0p2) / $FSTYPE noatime,lazytime 0 1
-PARTUUID=$(lsblk -no PARTUUID /dev/loop0p1) /boot/efi vfat noatime,lazytime 0 2
+PARTUUID=$(lsblk -no PARTUUID "${FP_LOOP}p2") / $FSTYPE noatime,lazytime 0 1
+PARTUUID=$(lsblk -no PARTUUID "${FP_LOOP}p1") /boot/efi vfat noatime,lazytime 0 2
 _EOF_
 # + boot partition
 elif (( $boot_size ))
 then
 	FP_ROOT_DEV=2
-	G_EXEC mkfs.fat -F 32 /dev/loop0p1
-	G_EXEC "mkfs.$FSTYPE" /dev/loop0p2
-	G_EXEC mount /dev/loop0p2 rootfs
-	G_EXEC mkdir rootfs/boot
-	G_EXEC mount /dev/loop0p1 rootfs/boot
+	if [[ $boot_fstype == 'fat32' ]]
+	then
+		boot_fstype='vfat'
+		G_EXEC mkfs.fat -F 32 -S 512 -s "$(cluster_size "$boot_size")" "${FP_LOOP}p1"
+
+	elif [[ $boot_fstype == 'fat16' ]]
+	then
+		boot_fstype='vfat'
+		G_EXEC mkfs.fat -F 16 "${FP_LOOP}p1"
+	else
+		abootfs_opts=()
+		[[ $boot_fstype == 'ext4' ]] && abootfs_opts=('-e' 'remount-ro')
+		G_EXEC "mkfs.$boot_fstype" "${abootfs_opts[@]}" "${FP_LOOP}p1"
+	fi
+	G_EXEC "mkfs.$FSTYPE" "${afs_opts[@]}" "${FP_LOOP}p2"
+	G_EXEC mount "${FP_LOOP}p2" rootfs
+	fp_boot='boot'
+	(( $RPI_NEW )) && fp_boot+='/firmware'
+	G_EXEC mkdir -p "rootfs/$fp_boot"
+	G_EXEC mount "${FP_LOOP}p1" "rootfs/$fp_boot"
 	G_EXEC mkdir rootfs/etc
 	cat << _EOF_ > rootfs/etc/fstab
-PARTUUID=$(lsblk -no PARTUUID /dev/loop0p2) / $FSTYPE noatime,lazytime 0 1
-PARTUUID=$(lsblk -no PARTUUID /dev/loop0p1) /boot vfat noatime,lazytime 0 2
+PARTUUID=$(lsblk -no PARTUUID "${FP_LOOP}p2") / $FSTYPE noatime,lazytime 0 1
+PARTUUID=$(lsblk -no PARTUUID "${FP_LOOP}p1") /$fp_boot $boot_fstype noatime,lazytime 0 2
 _EOF_
 # - single partition
 else
 	FP_ROOT_DEV=1
-	G_EXEC "mkfs.$FSTYPE" /dev/loop0p1
-	G_EXEC mount /dev/loop0p1 rootfs
+	G_EXEC "mkfs.$FSTYPE" "${afs_opts[@]}" "${FP_LOOP}p1"
+	G_EXEC mount "${FP_LOOP}p1" rootfs
 	G_EXEC mkdir rootfs/etc
-	cat << _EOF_ > rootfs/etc/fstab
-PARTUUID=$(lsblk -no PARTUUID /dev/loop0p1) / $FSTYPE noatime,lazytime 0 1
+	# shellcheck disable=SC2015
+	[[ $HW_MODEL == 75 ]] && > rootfs/etc/fstab || cat << _EOF_ > rootfs/etc/fstab
+PARTUUID=$(lsblk -no PARTUUID "${FP_LOOP}p1") / $FSTYPE noatime,lazytime 0 1
 _EOF_
 fi
 
-# Create rc.local to automate DietPi-PREP
-cat << _EOF_ > rootfs/etc/rc.local
+# Add /tmp and /var/log tmpfs mounts
+cat << '_EOF_' >> rootfs/etc/fstab
+tmpfs /tmp tmpfs noatime,lazytime,nodev,nosuid,mode=1777
+tmpfs /var/log tmpfs size=50M,noatime,lazytime,nodev,nosuid
+_EOF_
+
+##########################################
+# debootstrap
+##########################################
+# Add temporary tmpfs mounts to prevent certain files created by debootstrap being written to disk
+# - "-o X-mount.mkdir" has a shortcut "-m" in recent "mount", but not available on Ubuntu Jammy yet!
+G_EXEC mount -o X-mount.mkdir -t tmpfs tmpfs rootfs/dev
+G_EXEC mount -o X-mount.mkdir -t tmpfs tmpfs rootfs/run
+G_EXEC mount -o X-mount.mkdir -t tmpfs tmpfs rootfs/var/cache/apt
+G_EXEC mount -o X-mount.mkdir -t tmpfs tmpfs rootfs/var/lib/apt/lists
+G_EXEC mount -o X-mount.mkdir -t tmpfs tmpfs rootfs/var/log
+packages='apt,bash-completion,bzip2,ca-certificates,cron,curl,fdisk,gnupg,htop,iputils-ping,locales,nano,p7zip,parted,procps,psmisc,sudo,systemd-sysv,tzdata,udev,unzip,wget,whiptail,'
+[[ $HW_MODEL == 75 ]] && packages+='iproute2' || packages+='console-setup,dropbear,ethtool,fake-hwclock,ifupdown,isc-dhcp-client,kmod,rfkill,systemd-timesyncd,usbutils'
+G_EXEC_POST_FUNC(){ [[ $exit_code == 0 ]] || cat /dev/shm/rootfs/debootstrap/debootstrap.log; }
+G_EXEC_OUTPUT=1 G_EXEC debootstrap --variant=minbase --exclude="gcc-7-base$exclude" --include="$packages" --arch="$parch" --keyring="$keyring" "$distro" ./rootfs "$repo"
+G_EXEC umount rootfs/dev rootfs/run rootfs/var/cache/apt rootfs/var/lib/apt/lists rootfs/var/log
+
+##########################################
+# DietPi-Installer
+##########################################
+# Create rc.local to automate DietPi-Installer
+# - NB: WIFI_REQUIRED=1 is always passed here, but ignored by DietPi-Installer for VMs and containers.
+cat << '_EOF_' > rootfs/etc/rc.local
 #!/bin/dash
 {
-echo '[ INFO ] Running DietPi-PREP...'
-export GITBRANCH='$GITBRANCH' HW_MODEL='$HW_MODEL' IMAGE_CREATOR=0 PREIMAGE_INFO='from scratch' WIFI_REQUIRED=$WIFI_REQUIRED DISTRO_TARGET=$DISTRO
-bash -c "\$(curl -sSfL 'https://raw.githubusercontent.com/$G_GITOWNER/DietPi/$G_GITBRANCH/PREP_SYSTEM_FOR_DIETPI.sh')"
+infocmp "$TERM" > /dev/null 2>&1 || { echo "[ WARN ] Unsupported TERM=\"$TERM\", switching to TERM=\"dumb\""; export TERM=dumb; }
+echo '[ INFO ] Running DietPi-Installer...'
 _EOF_
-G_EXEC chmod +x rootfs/etc/rc.local
+
+cat << _EOF_ >> rootfs/etc/rc.local
+export GITOWNER='$GITOWNER' GITBRANCH='$GITBRANCH' HW_MODEL='$HW_MODEL' IMAGE_CREATOR=0 PREIMAGE_INFO=0 WIFI_REQUIRED=1 DISTRO_TARGET=$DISTRO
+echo '[ INFO ] Running DietPi-Installer for $G_GITOWNER/$G_GITBRANCH'
+bash -c "\$(curl -sSf 'https://raw.githubusercontent.com/$G_GITOWNER/DietPi/$G_GITBRANCH/.build/images/dietpi-installer')" || poweroff
+_EOF_
 
 # - VM: Generate tiny-initramfs with explicit kernel modules, as auto-detection doesn't work correctly within container and loop devices
 [[ $HW_MODEL == 20 ]] && cat << _EOF_ >> rootfs/etc/rc.local
 echo '[ INFO ] Rebuilding virtual machine initramfs to support all virtualizers...'
-version=\$(dpkg --get-selections | mawk '\$1~/^linux-image-.*-$parch\$/{print \$1;exit}') || exit 1
+version=\$(dpkg --get-selections | mawk '\$1~/^linux-image-.*-$parch\$/{print \$1;exit}') || poweroff
 version=\${version#linux-image-}
-mktirfs -m no -M no --include-modules='ahci,sd_mod,vmw_pvscsi,hv_storvsc,$FSTYPE' -o "/boot/initrd.img-\$version" "\$version" || exit 1
+mktirfs -m no -M no --include-modules='ahci,sd_mod,vmw_pvscsi,hv_storvsc,virtio_scsi,virtio_pci,BusLogic,$FSTYPE' -o "/boot/initrd.img-\$version" "\$version" || poweroff
 _EOF_
 
 cat << '_EOF_' >> rootfs/etc/rc.local
@@ -226,54 +435,282 @@ poweroff
 exit 0
 } > /dev/console 2>&1 < /dev/console
 _EOF_
-
-# Bootstrap
-G_EXEC_OUTPUT=1 G_EXEC debootstrap --variant=minbase --exclude="gcc-7-base,gcc-8-base,gcc-9-base$exclude" --include='bash-completion,bzip2,ca-certificates,console-setup,cron,curl,dropbear,ethtool,fake-hwclock,fdisk,gnupg,htop,ifupdown,isc-dhcp-client,kmod,locales,nano,p7zip,parted,procps,psmisc,rfkill,sudo,systemd-sysv,systemd-timesyncd,tzdata,udev,unzip,usbutils,wget,whiptail' --arch="$parch" --keyring="$keyring" "$distro" ./rootfs "$repo"
-
-# Remove cached archives and list files created by debootstrap
-G_EXEC rm -Rf rootfs/var/{cache/apt,lib/apt/lists}/*
+G_EXEC chmod +x rootfs/etc/rc.local
 
 # Start container
-# - dbus required for container spawn
-mask_dbus=0
-[[ $(readlink /etc/systemd/system/dbus.socket) == '/dev/null' ]] && mask_dbus=1
-G_EXEC systemctl unmask dbus.socket dbus
-G_EXEC systemctl start dbus.socket dbus
 # - Bind mounts required to allow container reading its own drive info, /dev/disk for GRUB and probably other tools to detect UUIDs
+# - Skip for container images
 abind=()
-[[ -b '/dev/loop0p2' ]] && abind=('--bind=/dev/loop0p2')
-[[ -b '/dev/loop0p3' ]] && abind+=('--bind=/dev/loop0p3')
-systemd-nspawn -bD rootfs --bind=/dev/loop0 --bind=/dev/loop0p1 "${abind[@]}" --bind=/dev/disk || exit 1
+if [[ $HW_MODEL != 75 ]]
+then
+	abind=("--bind=$FP_LOOP" '--bind=/dev/disk')
+	for i in "${FP_LOOP}p"*; do abind+=("--bind=$i"); done
+fi
+systemd-nspawn -bD rootfs "${abind[@]}" || exit 1
+
 [[ -f 'rootfs/success' ]] || { G_DIETPI-NOTIFY 1 'The container setup did not finish successfully, aborting...'; exit 1; }
 G_EXEC rm rootfs/success
+G_EXEC rm -Rf rootfs/{dev,proc,run,sys,tmp,var/log}/{,.??,.[^.]}* # Failsafe: /var/log/journal was found despite tmpfs mount!
 G_EXEC sync
 G_EXEC sleep 1
 G_EXEC umount -R rootfs
 G_EXEC rmdir rootfs
-G_EXEC losetup -d /dev/loop0
-(( $mask_dbus )) && { G_EXEC systemctl mask --now dbus dbus.socket && mask_dbus=0; }
+G_EXEC losetup -d "$FP_LOOP"
 
-# Imager
-export FP_ROOT_DEV CLONING_TOOL OUTPUT_IMG_NAME MOUNT_IT='Off'
-bash -c "$(curl -sSfL "https://raw.githubusercontent.com/$G_GITOWNER/DietPi/$G_GITBRANCH/.meta/dietpi-imager")" 'DietPi-Imager' "$OUTPUT_IMG_NAME.img" || exit 1
+##########################################
+# DietPi-Imager
+##########################################
+# Do not pack and upload raw VM image if not explicitly requested
+[[ $VMTYPE && ! $VMTYPE =~ ^(raw|all)$ ]] && SKIP_ARCHIVE=1 || SKIP_ARCHIVE=0
+export FP_ROOT_DEV CLONING_TOOL OUTPUT_IMG_NAME MOUNT_IT='Off' SKIP_ARCHIVE SKIP_FIRSTBOOT_RESIZE=1
+IMAGER_ARGS=("$OUTPUT_IMG_NAME.img")
+(( $ADD_DOS_PART )) && IMAGER_ARGS+=('--add-dos-part')
+(( $RPI_NEW )) && IMAGER_ARGS+=('--configs-to-boot')
+[[ $SIGN_PASS ]] && IMAGER_ARGS+=('--sign' "$SIGN_PASS")
+if [[ ! $EDITION || $EDITION == 'all' ]]
+then
+	G_DIETPI-NOTIFY 2 "Running DietPi-Imager for $G_GITOWNER/$G_GITBRANCH"
+	bash -c "$(curl -sSf "https://raw.githubusercontent.com/$G_GITOWNER/DietPi/$G_GITBRANCH/.build/images/dietpi-imager")" 'DietPi-Imager' "${IMAGER_ARGS[@]}" || exit 1
+fi
 
-[[ $VMTYPE ]] || { G_EXEC rm "$OUTPUT_IMG_NAME.img"; exit 0; }
+# Amiberry edition: Install automatically on first boot, enable autostart option and onboard audio on RPi
+if [[ $EDITION == 'Amiberry' || ( $EDITION == 'all' && $HW_MODEL == 0 ) ]]
+then
+	G_EXEC mv "$OUTPUT_IMG_NAME.img" "${OUTPUT_IMG_NAME}_Amiberry.img"
+	OUTPUT_IMG_NAME="${OUTPUT_IMG_NAME}_Amiberry"
+	IMAGER_ARGS[0]="$OUTPUT_IMG_NAME.img"
 
-### Virtual machines ###
-G_EXEC_DESC='Downloading current README.md to pack with image...' G_EXEC curl -sSfL "https://raw.githubusercontent.com/$G_GITOWNER/DietPi/$G_GITBRANCH/README.md" -o README.md
+	# Create loop device
+	FP_LOOP=$(losetup -f)
+	G_EXEC losetup "$FP_LOOP" "$OUTPUT_IMG_NAME.img"
+	G_EXEC partprobe "$FP_LOOP"
+	G_EXEC partx -u "$FP_LOOP"
 
+	# Remove added DOS partition, it will be re-added by DietPi-Imager
+	if (( $ADD_DOS_PART )) && [[ $(lsblk -nrbo FSTYPE,LABEL "$FP_LOOP" | tail -1) == 'vfat DIETPISETUP' ]]
+	then
+		SETUP_PART=$(sfdisk -lqo DEVICE "$FP_LOOP" | tail -1)
+		G_EXEC_OUTPUT=1 G_EXEC sfdisk --no-reread --no-tell-kernel --delete "$FP_LOOP" "${SETUP_PART: -1}"
+		G_EXEC partprobe "$FP_LOOP"
+		G_EXEC partx -u "$FP_LOOP"
+	fi
+
+	# Mount filesystems
+	G_EXEC mkdir rootfs
+	if (( $RPI_NEW ))
+	then
+		G_EXEC mount "${FP_LOOP}p2" rootfs
+
+	elif (( $boot_size ))
+	then
+		G_EXEC mount "${FP_LOOP}p2" rootfs
+		G_EXEC mount "${FP_LOOP}p1" rootfs/boot
+	else
+		G_EXEC mount "${FP_LOOP}p1" rootfs
+	fi
+
+	# Install Amiberry via automated first run setup
+	G_CONFIG_INJECT 'AUTO_SETUP_AUTOMATED=' 'AUTO_SETUP_AUTOMATED=1' rootfs/boot/dietpi.txt
+	G_CONFIG_INJECT 'AUTO_SETUP_INSTALL_SOFTWARE_ID=' 'AUTO_SETUP_INSTALL_SOFTWARE_ID=108' rootfs/boot/dietpi.txt
+	# Enable Amiberry fast boot autostart option
+	G_CONFIG_INJECT 'AUTO_SETUP_AUTOSTART_TARGET_INDEX=' 'AUTO_SETUP_AUTOSTART_TARGET_INDEX=6' rootfs/boot/dietpi.txt
+	# RPi: Enable onboard audio so that it can be detected and configured on first boot
+	[[ -f 'rootfs/boot/config.txt' ]] && G_CONFIG_INJECT 'dtparam=audio=' 'dtparam=audio=on' rootfs/boot/config.txt
+
+	G_EXEC sync
+	G_EXEC sleep 1
+	G_EXEC umount -R rootfs
+	G_EXEC rmdir rootfs
+	G_EXEC losetup -d "$FP_LOOP"
+
+	G_DIETPI-NOTIFY 2 "Running DietPi-Imager for $G_GITOWNER/$G_GITBRANCH"
+	bash -c "$(curl -sSf "https://raw.githubusercontent.com/$G_GITOWNER/DietPi/$G_GITBRANCH/.build/images/dietpi-imager")" 'DietPi-Imager' "${IMAGER_ARGS[@]}" || exit 1
+fi
+
+# AlloGUI edition: Pre-install Allo GUI with all managed audiophile software
+if [[ $EDITION == 'AlloGUI' || ( $EDITION == 'all' && $HW_MODEL =~ ^(0|70)$ ) ]]
+then
+	G_EXEC mv "$OUTPUT_IMG_NAME.img" "${OUTPUT_IMG_NAME%_Amiberry}_AlloGUI.img"
+	OUTPUT_IMG_NAME="${OUTPUT_IMG_NAME%_Amiberry}_AlloGUI"
+	IMAGER_ARGS[0]="$OUTPUT_IMG_NAME.img"
+
+	# Raise image size to 2.5 GiB and create loop device
+	G_EXEC truncate -s '2560M' "$OUTPUT_IMG_NAME.img"
+	FP_LOOP=$(losetup -f)
+	G_EXEC losetup "$FP_LOOP" "$OUTPUT_IMG_NAME.img"
+	G_EXEC partprobe "$FP_LOOP"
+	G_EXEC partx -u "$FP_LOOP"
+
+	# Remove added DOS partition, it will be re-added by DietPi-Imager
+	if (( $ADD_DOS_PART )) && [[ $(lsblk -nrbo FSTYPE,LABEL "$FP_LOOP" | tail -1) == 'vfat DIETPISETUP' ]]
+	then
+		SETUP_PART=$(sfdisk -lqo DEVICE "$FP_LOOP" | tail -1)
+		G_EXEC_OUTPUT=1 G_EXEC sfdisk --no-reread --no-tell-kernel --delete "$FP_LOOP" "${SETUP_PART: -1}"
+		G_EXEC partprobe "$FP_LOOP"
+		G_EXEC partx -u "$FP_LOOP"
+	fi
+
+	# Raise partition and filesystem sizes as well, since partprobe cannot inform the host kernel about the changed size from within the container
+	G_EXEC_OUTPUT=1 G_EXEC eval "sfdisk -fN2 '$FP_LOOP' <<< ',+'"
+	G_EXEC partprobe "$FP_LOOP"
+	G_EXEC partx -u "$FP_LOOP"
+	G_EXEC_OUTPUT=1 G_EXEC "${afsck[@]}" "${FP_LOOP}p2"
+	G_EXEC_OUTPUT=1 G_EXEC "${aresize[@]}" "${FP_LOOP}p2"
+
+	# Mount filesystems
+	G_EXEC mkdir rootfs
+	if (( $RPI_NEW ))
+	then
+		G_EXEC mount "${FP_LOOP}p2" rootfs
+
+	elif (( $boot_size ))
+	then
+		G_EXEC mount "${FP_LOOP}p2" rootfs
+		G_EXEC mount "${FP_LOOP}p1" rootfs/boot
+	else
+		G_EXEC mount "${FP_LOOP}p1" rootfs
+	fi
+
+	# Install Allo GUI via automated first run setup right here
+	G_CONFIG_INJECT 'AUTO_SETUP_AUTOMATED=' 'AUTO_SETUP_AUTOMATED=1' rootfs/boot/dietpi.txt
+	# - Workaround for skipped autologin in emulated Trixie/Sid containers: https://gitlab.com/qemu-project/qemu/-/issues/1962
+	if (( $DISTRO == 8 && $G_HW_ARCH != $HW_ARCH && ( $G_HW_ARCH > 9 || $G_HW_ARCH < $HW_ARCH ) ))
+	then
+		cat << '_EOF_' > rootfs/etc/systemd/system/dietpi-automation.service
+[Unit]
+Description=DietPi-Automation
+After=dietpi-postboot.service
+
+[Service]
+Type=idle
+StandardOutput=tty
+ExecStart=/bin/dash -c 'infocmp "$TERM" > /dev/null 2>&1 || export TERM=dumb; exec /boot/dietpi/dietpi-login'
+ExecStop=/sbin/poweroff
+
+[Install]
+WantedBy=multi-user.target
+_EOF_
+		G_EXEC ln -s /etc/systemd/system/dietpi-automation.service rootfs/etc/systemd/system/multi-user.target.wants/
+	fi
+	G_CONFIG_INJECT 'AUTO_SETUP_INSTALL_SOFTWARE_ID=' 'AUTO_SETUP_INSTALL_SOFTWARE_ID=159' rootfs/boot/dietpi.txt
+	# Revert autostart option, in case Amiberry image was generated before
+	G_CONFIG_INJECT 'AUTO_SETUP_AUTOSTART_TARGET_INDEX=' 'AUTO_SETUP_AUTOSTART_TARGET_INDEX=0' rootfs/boot/dietpi.txt
+
+	# Force ARMv6 arch on Raspbian
+	(( $HW_ARCH == 1 )) && echo 'sed --follow-symlinks -i -e '\''/^G_HW_ARCH=/c\G_HW_ARCH=1'\'' -e '\''/^G_HW_ARCH_NAME=/c\G_HW_ARCH_NAME=armv6l'\'' /boot/dietpi/.hw_model' > rootfs/boot/Automation_Custom_PreScript.sh
+
+	# Temporary fix for failing NAA Daemon install on Trixie
+	(( $DISTRO == 8 )) && G_EXEC sed --follow-symlinks -i '\|www.signalyst.eu|s|bookworm/bullseye|trixie/bullseye|' rootfs/boot/dietpi/dietpi-software
+
+	# Skip filesystem expansion
+	G_EXEC rm rootfs/etc/systemd/system/local-fs.target.wants/dietpi-fs_partition_resize.service
+
+	# Workaround invalid TERM on login
+	# shellcheck disable=SC2016
+	G_EXEC eval 'echo '\''infocmp "$TERM" > /dev/null 2>&1 || { echo "[ WARN ] Unsupported TERM=\"$TERM\", switching to TERM=\"dumb\""; export TERM=dumb; }'\'' > rootfs/etc/bashrc.d/00-dietpi-build.sh'
+
+	# Workaround for failing IPv4 network connectivity check as GitHub Actions runners do not receive external ICMP echo replies.
+	G_CONFIG_INJECT 'CONFIG_CHECK_CONNECTION_IP=' 'CONFIG_CHECK_CONNECTION_IP=127.0.0.1' rootfs/boot/dietpi.txt
+
+	# Generate automation custom script for first boot and cleanup steps
+	cat << '_EOF_' > rootfs/boot/Automation_Custom_Script.sh
+#!/bin/bash
+{
+. /boot/dietpi/func/dietpi-globals
+/boot/dietpi/dietpi-services stop
+/boot/dietpi/dietpi-services enable
+
+# RPi: Reset for supporting all models
+if (( $G_HW_MODEL < 10 ))
+then
+	/boot/dietpi/func/dietpi-set_hardware serialconsole 0 ttyAMA0
+	systemctl mask serial-getty@ttyAMA0
+	/boot/dietpi/func/dietpi-set_hardware serialconsole 0 ttyS0
+	systemctl mask serial-getty@ttyS0
+	/boot/dietpi/func/dietpi-set_hardware serialconsole 1 serial0
+	G_CONFIG_INJECT 'temp_limit=' 'temp_limit=75' /boot/config.txt # since most RPis are now RPi 4 and Allo ships the CM3 with USBridge Sig and Allo GUI image
+	G_EXEC sed --follow-symlinks -Ei 's/^(arm_freq|over_voltage)=/#\1=/' /boot/config.txt
+fi
+
+# FirstBoot
+G_CONFIG_INJECT 'SURVEY_OPTED_IN=' 'SURVEY_OPTED_IN=-1' /boot/dietpi.txt
+G_EXEC systemctl enable dietpi-fs_partition_resize
+G_EXEC eval 'echo 10 > /boot/dietpi/.install_stage'
+
+# Cleanup
+/boot/dietpi/func/dietpi-logclear 2
+G_EXEC systemctl stop dietpi-ramlog
+G_EXEC rm -R /var/tmp/dietpi/logs
+/boot/dietpi/func/dietpi-set_software apt-cache clean
+G_EXEC rm /boot/dietpi/.{hw_model,dietpi-services_include_exclude} /boot/dietpi-wifi.txt
+G_EXEC rm -Rf /{root,home/*}/.{bash_history,nano_history,wget-hsts,cache,local,config,gnupg,viminfo,dbus,gconf,nano,vim,zshrc,oh-my-zsh} /etc/*- /var/{cache/debconf,lib/dpkg}/*-old /var/lib/dhcp/{,.??,.[^.]}*
+# Remove unique Roon IDs: https://community.roonlabs.com/t/roon-core-will-not-recognize-two-dietpi-allo-gui-roon-bridges-simultaneously/32563/18
+G_EXEC rm -f /mnt/dietpi_userdata/roon/{RoonBridge,RAATServer}/Settings/unique_id
+
+# Re-create required log dirs
+G_EXEC mkdir -pm 2750 /var/tmp/dietpi/logs/dietpi-ramlog_store/{mysql,netdata,samba}
+G_EXEC chown mysql /var/tmp/dietpi/logs/dietpi-ramlog_store/mysql
+G_EXEC chown netdata /var/tmp/dietpi/logs/dietpi-ramlog_store/netdata
+G_EXEC chmod 0750 /var/tmp/dietpi/logs/dietpi-ramlog_store/samba
+
+# Remove automation scripts and workarounds
+G_EXEC rm /etc/bashrc.d/00-dietpi-build.sh /boot/Automation_Custom_Script.sh
+
+> /success
+poweroff
+}
+_EOF_
+	(( $HW_ARCH == 1 )) && G_EXEC sed --follow-symlinks -i 's/Custom_Script/Custom_{Pre,}Script/' rootfs/boot/Automation_Custom_Script.sh
+
+	# Start container
+	# - Bind mounts required to allow container reading its own drive info, /dev/disk for GRUB and probably other tools to detect UUIDs
+	# - Skip for container images
+	abind=()
+	if [[ $HW_MODEL != 75 ]]
+	then
+		abind=("--bind=$FP_LOOP" '--bind=/dev/disk')
+		for i in "${FP_LOOP}p"*; do abind+=("--bind=$i"); done
+	fi
+	systemd-nspawn -bD rootfs "${abind[@]}" || exit 1
+
+	# Reset IPv4 network connectivity check setting
+	G_CONFIG_INJECT 'CONFIG_CHECK_CONNECTION_IP=' 'CONFIG_CHECK_CONNECTION_IP=9.9.9.9' rootfs/boot/dietpi.txt
+
+	# Revert workaround for skipped autologin in emulated Trixie/Sid containers: https://gitlab.com/qemu-project/qemu/-/issues/1962
+	(( $DISTRO == 8 )) && G_EXEC rm rootfs/etc/systemd/system/{multi-user.target.wants/,}dietpi-automation.service
+
+	[[ -f 'rootfs/success' ]] || { G_DIETPI-NOTIFY 1 'The container setup did not finish successfully, aborting...'; exit 1; }
+	G_EXEC rm rootfs/success
+	G_EXEC sync
+	G_EXEC sleep 1
+	G_EXEC umount -R rootfs
+	G_EXEC rmdir rootfs
+	G_EXEC losetup -d "$FP_LOOP"
+
+	G_DIETPI-NOTIFY 2 "Running DietPi-Imager for $G_GITOWNER/$G_GITBRANCH"
+	bash -c "$(curl -sSf "https://raw.githubusercontent.com/$G_GITOWNER/DietPi/$G_GITBRANCH/.build/images/dietpi-imager")" 'DietPi-Imager' "${IMAGER_ARGS[@]}" || exit 1
+fi
+
+[[ $VMTYPE && $VMTYPE != 'raw' ]] || exit 0
+
+##########################################
+# Virtual machines
+##########################################
 # NB: LZMA2 ultra compression requires much memory per thread. 1 GiB is not sufficient for >2 threads, hence use "-mmt2" to limit used CPU threads to "2" on 1 GiB devices with more than two cores.
-limit_threads=
-(( $(free -m | mawk '/Mem:/{print $2}') < 1750 && $(nproc) > 2 )) && limit_threads='-mmt2'
+limit_threads=()
+(( $(free -m | mawk '/Mem:/{print $2}') < 1750 && $(nproc) > 2 )) && limit_threads=('-T2')
 
 # Since qemu-img does not support VMDK and VHDX resizing, we need to resize the raw .img. It is usually done as sparse file, hence the actual disk usage does not change.
 G_EXEC qemu-img resize "$OUTPUT_IMG_NAME.img" 8G
 
-# VMware
-if [[ $VMTYPE =~ ^(vmware|all)$ ]]
+####### VMX/VMware/Parallels #############
+if [[ $VMTYPE =~ ^(vmx|all)$ ]]
 then
-	G_EXEC qemu-img convert -O vmdk "$OUTPUT_IMG_NAME.img" "${OUTPUT_IMG_NAME/_VM-/_VMware-}.vmdk"
-	cat << _EOF_ > "${OUTPUT_IMG_NAME/_VM-/_VMware-}.vmx"
+	image_name=${OUTPUT_IMG_NAME/_VM-/_VMX-}
+	# Convert raw image to VMDK
+	G_EXEC qemu-img convert -O vmdk -o 'adapter_type=lsilogic' "$OUTPUT_IMG_NAME.img" "$image_name.vmdk"
+	# Create VM configuration
+	cat << _EOF_ > "$image_name.vmx"
 .encoding = "windows-1252"
 config.version = "8"
 virtualHW.version = "10"
@@ -292,66 +729,187 @@ pciBridge7.virtualDev = "pcieRootPort"
 pciBridge7.functions = "8"
 vmci0.present = "TRUE"
 hpet0.present = "TRUE"
-nvram = "DietPi_VMware-x86_64-${distro^}.nvram"
+nvram = "$image_name.nvram"
 virtualHW.productCompatibility = "hosted"
 gui.exitOnCLIHLT = "FALSE"
 powerType.powerOff = "soft"
 powerType.powerOn = "soft"
 powerType.suspend = "soft"
 powerType.reset = "soft"
-displayName = "DietPi_VMware-x86_64-${distro^}"
+displayName = "$image_name"
 guestOS = "debian10-64"
-vhv.enable = "TRUE"
 tools.syncTime = "FALSE"
 vcpu.hotadd = "TRUE"
 memsize = "1024"
 scsi0.virtualDev = "pvscsi"
 scsi0.present = "TRUE"
-scsi0:0.fileName = "DietPi_VMware-x86_64-${distro^}.vmdk"
+scsi0:0.fileName = "$image_name.vmdk"
 scsi0:0.present = "TRUE"
-ide1:0.autodetect = "TRUE"
-ide1:0.deviceType = "cdrom-raw"
-ide1:0.fileName = "auto detect"
-ide1:0.present = "TRUE"
 usb.present = "TRUE"
 ehci.present = "TRUE"
 usb_xhci.present = "TRUE"
 ethernet0.addressType = "generated"
 ethernet0.virtualDev = "e1000"
 ethernet0.present = "TRUE"
-extendedConfigFile = "DietPi_VMware-x86_64-${distro^}.vmxf"
+extendedConfigFile = "$image_name.vmxf"
 floppy0.present = "FALSE"
 _EOF_
-	G_DIETPI-NOTIFY 2 'Generating hashes to pack with VMware image, please wait...'
-	cat << _EOF_ > hash.txt
-FILE:   ${OUTPUT_IMG_NAME/_VM-/_VMware-}.vmdk
-DATE:   $(date)
-MD5:    $(md5sum "${OUTPUT_IMG_NAME/_VM-/_VMware-}.vmdk" | mawk '{print $1}')
-SHA1:   $(sha1sum "${OUTPUT_IMG_NAME/_VM-/_VMware-}.vmdk" | mawk '{print $1}')
-SHA256: $(sha256sum "${OUTPUT_IMG_NAME/_VM-/_VMware-}.vmdk" | mawk '{print $1}')
-
-FILE:   ${OUTPUT_IMG_NAME/_VM-/_VMware-}.vmx
-DATE:   $(date)
-MD5:    $(md5sum "${OUTPUT_IMG_NAME/_VM-/_VMware-}.vmx" | mawk '{print $1}')
-SHA1:   $(sha1sum "${OUTPUT_IMG_NAME/_VM-/_VMware-}.vmx" | mawk '{print $1}')
-SHA256: $(sha256sum "${OUTPUT_IMG_NAME/_VM-/_VMware-}.vmx" | mawk '{print $1}')
-_EOF_
-	G_EXEC_DESC='Creating VMware 7zip archive' G_EXEC_OUTPUT=1 G_EXEC 7zr a -bsp1 -bso1 -bse2 -m0=lzma2 -mx=9 $limit_threads "${OUTPUT_IMG_NAME/_VM-/_VMware-}.7z" "${OUTPUT_IMG_NAME/_VM-/_VMware-}.vmdk" "${OUTPUT_IMG_NAME/_VM-/_VMware-}.vmx" hash.txt README.md
-	G_EXEC rm "${OUTPUT_IMG_NAME/_VM-/_VMware-}.vmdk" "${OUTPUT_IMG_NAME/_VM-/_VMware-}.vmx"
-	[[ -x 'upload.sh' ]] && G_EXEC_OUTPUT=1 G_EXEC ./upload.sh "${OUTPUT_IMG_NAME/_VM-/_VMware-}.7z" && G_EXEC rm "${OUTPUT_IMG_NAME/_VM-/_VMware-}.7z"
+	G_EXEC_DESC='Creating VMware tar.xz archive' XZ_OPT="-9e ${limit_threads[*]}" G_EXEC tar -cJf "$image_name.tar.xz" "$image_name.vmdk" "$image_name.vmx"
+	G_EXEC rm "$image_name.vmdk" "$image_name.vmx"
+	G_EXEC_DESC='Generating SHA256 hash' G_EXEC eval "sha256sum '$image_name.tar.xz' > '$image_name.tar.xz.sha256'"
+	signature=()
+	[[ $SIGN_PASS ]] && { G_DIETPI-NOTIFY 2 'Signing archive ...'; gpg --batch --pinentry-mode loopback --passphrase "$SIGN_PASS" -b --armor "$image_name.tar.xz" || exit 1; signature=("$image_name.tar.xz.asc"); }
+	[[ -x 'upload.sh' ]] && G_EXEC_OUTPUT=1 G_EXEC ./upload.sh "$image_name.tar.xz"{,.sha256} "${signature[@]}" && G_EXEC rm "$image_name.tar.xz"{,.sha256} "${signature[@]}"
 fi
 
-# VirtualBox
+####### ESXi #############################
+if [[ $VMTYPE =~ ^(esxi|all)$ ]]
+then
+	image_name=${OUTPUT_IMG_NAME/_VM-/_ESXi-}
+	# Convert raw image to VMDK
+	G_EXEC qemu-img convert -O vmdk -o 'adapter_type=lsilogic,subformat=streamOptimized' "$OUTPUT_IMG_NAME.img" "$image_name.vmdk"
+	# Create VM configuration
+	cat << _EOF_ > "$image_name.ovf"
+<?xml version='1.0' encoding='UTF-8'?>
+<Envelope xmlns="http://schemas.dmtf.org/ovf/envelope/1" xmlns:ovf="http://schemas.dmtf.org/ovf/envelope/1" xmlns:vmw="http://www.vmware.com/schema/ovf" xmlns:rasd="http://schemas.dmtf.org/wbem/wscim/1/cim-schema/2/CIM_ResourceAllocationSettingData" xmlns:vssd="http://schemas.dmtf.org/wbem/wscim/1/cim-schema/2/CIM_VirtualSystemSettingData">
+  <References>
+    <File ovf:id="file1" ovf:href="$image_name.vmdk"/>
+  </References>
+  <DiskSection>
+    <Info>List of the virtual disks</Info>
+    <Disk ovf:capacityAllocationUnits="byte * 2^30" ovf:format="http://www.vmware.com/interfaces/specifications/vmdk.html#streamOptimized" ovf:diskId="vmdisk1" ovf:capacity="8" ovf:fileRef="file1"/>
+  </DiskSection>
+  <NetworkSection>
+    <Info>The list of logical networks</Info>
+    <Network ovf:name="VM Network">
+      <Description>The VM Network network</Description>
+    </Network>
+  </NetworkSection>
+  <VirtualSystem ovf:id="$image_name">
+    <Info>A Virtual system</Info>
+    <Name>$image_name</Name>
+    <OperatingSystemSection ovf:id="96" ovf:version="10" vmw:osType="debian10_64Guest">
+      <Info>The operating system installed</Info>
+      <Description>Debian GNU/Linux 10 (64-bit)</Description>
+    </OperatingSystemSection>
+    <VirtualHardwareSection>
+      <Info>Virtual hardware requirements</Info>
+      <System>
+        <vssd:ElementName>Virtual Hardware Family</vssd:ElementName>
+        <vssd:InstanceID>0</vssd:InstanceID>
+        <vssd:VirtualSystemType>vmx-13</vssd:VirtualSystemType>
+      </System>
+      <Item>
+        <rasd:AllocationUnits>hertz * 10^6</rasd:AllocationUnits>
+        <rasd:Description>Number of Virtual CPUs</rasd:Description>
+        <rasd:ElementName>1 virtual CPU(s)</rasd:ElementName>
+        <rasd:InstanceID>1</rasd:InstanceID>
+        <rasd:ResourceType>3</rasd:ResourceType>
+        <rasd:VirtualQuantity>1</rasd:VirtualQuantity>
+        <vmw:CoresPerSocket ovf:required="false">1</vmw:CoresPerSocket>
+      </Item>
+      <Item>
+        <rasd:AllocationUnits>byte * 2^20</rasd:AllocationUnits>
+        <rasd:Description>Memory Size</rasd:Description>
+        <rasd:ElementName>1024MB of memory</rasd:ElementName>
+        <rasd:InstanceID>2</rasd:InstanceID>
+        <rasd:ResourceType>4</rasd:ResourceType>
+        <rasd:VirtualQuantity>1024</rasd:VirtualQuantity>
+      </Item>
+      <Item>
+        <rasd:Address>0</rasd:Address>
+        <rasd:Description>SCSI Controller</rasd:Description>
+        <rasd:ElementName>SCSI Controller 1</rasd:ElementName>
+        <rasd:InstanceID>3</rasd:InstanceID>
+        <rasd:ResourceSubType>VirtualSCSI</rasd:ResourceSubType>
+        <rasd:ResourceType>6</rasd:ResourceType>
+      </Item>
+      <Item>
+        <rasd:AddressOnParent>0</rasd:AddressOnParent>
+        <rasd:ElementName>Hard Disk 1</rasd:ElementName>
+        <rasd:HostResource>ovf:/disk/vmdisk1</rasd:HostResource>
+        <rasd:InstanceID>4</rasd:InstanceID>
+        <rasd:Parent>3</rasd:Parent>
+        <rasd:ResourceType>17</rasd:ResourceType>
+      </Item>
+      <Item>
+        <rasd:AddressOnParent>0</rasd:AddressOnParent>
+        <rasd:AutomaticAllocation>true</rasd:AutomaticAllocation>
+        <rasd:Connection>VM Network</rasd:Connection>
+        <rasd:ElementName>Network adapter 1</rasd:ElementName>
+        <rasd:InstanceID>5</rasd:InstanceID>
+        <rasd:ResourceSubType>VmxNet3</rasd:ResourceSubType>
+        <rasd:ResourceType>10</rasd:ResourceType>
+        <vmw:Config ovf:required="false" vmw:key="connectable.allowGuestControl" vmw:value="true"/>
+        <vmw:Config ovf:required="false" vmw:key="wakeOnLanEnabled" vmw:value="true"/>
+        <vmw:Config ovf:required="false" vmw:key="uptCompatibilityEnabled" vmw:value="true"/>
+      </Item>
+      <Item ovf:required="false">
+        <rasd:ElementName>Video card</rasd:ElementName>
+        <rasd:InstanceID>6</rasd:InstanceID>
+        <rasd:ResourceType>24</rasd:ResourceType>
+        <vmw:Config ovf:required="false" vmw:key="enable3DSupport" vmw:value="false"/>
+        <vmw:Config ovf:required="false" vmw:key="numDisplays" vmw:value="1"/>
+        <vmw:Config ovf:required="false" vmw:key="graphicsMemorySizeInKB" vmw:value="262144"/>
+        <vmw:Config ovf:required="false" vmw:key="videoRamSizeInKB" vmw:value="8192"/>
+        <vmw:Config ovf:required="false" vmw:key="useAutoDetect" vmw:value="false"/>
+        <vmw:Config ovf:required="false" vmw:key="use3dRenderer" vmw:value="automatic"/>
+      </Item>
+      <vmw:Config ovf:required="false" vmw:key="cpuHotAddEnabled" vmw:value="false"/>
+      <vmw:Config ovf:required="false" vmw:key="sgxInfo.epcSize" vmw:value="0"/>
+      <vmw:Config ovf:required="false" vmw:key="nestedHVEnabled" vmw:value="false"/>
+      <vmw:Config ovf:required="false" vmw:key="virtualSMCPresent" vmw:value="false"/>
+      <vmw:Config ovf:required="false" vmw:key="flags.vvtdEnabled" vmw:value="false"/>
+      <vmw:Config ovf:required="false" vmw:key="cpuHotRemoveEnabled" vmw:value="false"/>
+      <vmw:Config ovf:required="false" vmw:key="sgxInfo.flcMode" vmw:value="unlocked"/>
+      <vmw:Config ovf:required="false" vmw:key="sevEnabled" vmw:value="false"/>
+      <vmw:Config ovf:required="false" vmw:key="virtualICH7MPresent" vmw:value="false"/>
+      <vmw:Config ovf:required="false" vmw:key="flags.vbsEnabled" vmw:value="false"/>
+      <vmw:Config ovf:required="false" vmw:key="memoryHotAddEnabled" vmw:value="false"/>
+      <vmw:Config ovf:required="false" vmw:key="bootOptions.efiSecureBootEnabled" vmw:value="false"/>
+      <vmw:Config ovf:required="false" vmw:key="firmware" vmw:value="bios"/>
+      <vmw:ExtraConfig ovf:required="false" vmw:key="nvram" vmw:value="$image_name.nvram"/>
+    </VirtualHardwareSection>
+  </VirtualSystem>
+</Envelope>
+_EOF_
+	# Create manifest file for automatic integrity check
+	cat << _EOF_ > "$image_name.mf"
+SHA1($image_name.ovf)= $(sha1sum "$image_name.ovf" | mawk '{print $1}')
+SHA1($image_name.vmdk)= $(sha1sum "$image_name.vmdk" | mawk '{print $1}')
+_EOF_
+	# Pack everything as OVA appliance for ESXi import
+	G_EXEC tar -cf "$image_name.ova" "$image_name."{ovf,vmdk,mf}
+	[[ $VMTYPE == 'all' ]] || G_EXEC rm "$image_name.vmdk"
+	G_EXEC rm "$image_name."{ovf,mf}
+
+	G_EXEC_DESC='Creating ESXi xz archive' G_EXEC xz -9e "${limit_threads[@]}" "$image_name.ova"
+	G_EXEC_DESC='Generating SHA256 hash' G_EXEC eval "sha256sum '$image_name.ova.xz' > '$image_name.ova.xz.sha256'"
+	signature=()
+	[[ $SIGN_PASS ]] && { G_DIETPI-NOTIFY 2 'Signing archive ...'; gpg --batch --pinentry-mode loopback --passphrase "$SIGN_PASS" -b --armor "$image_name.ova.xz" || exit 1; signature=("$image_name.ova.xz.asc"); }
+	[[ -x 'upload.sh' ]] && G_EXEC_OUTPUT=1 G_EXEC ./upload.sh "$image_name.ova.xz"{,.sha256} "${signature[@]}" && G_EXEC rm "$image_name.ova.xz"{,.sha256} "${signature[@]}"
+fi
+
+####### VirtualBox #######################
 if [[ $VMTYPE =~ ^(vbox|all)$ ]]
 then
-	G_EXEC qemu-img convert -O vmdk -o 'subformat=streamOptimized' "$OUTPUT_IMG_NAME.img" "${OUTPUT_IMG_NAME/_VM-/_VirtualBox-}.vmdk"
+	image_name=${OUTPUT_IMG_NAME/_VM-/_VirtualBox-}
+	# Reuse or convert raw image to VMDK
+	if [[ $VMTYPE == 'all' ]]
+	then
+		G_EXEC mv "${OUTPUT_IMG_NAME/_VM-/_ESXi-}.vmdk" "$image_name.vmdk"
+	else
+		G_EXEC qemu-img convert -O vmdk -o 'adapter_type=lsilogic,subformat=streamOptimized' "$OUTPUT_IMG_NAME.img" "$image_name.vmdk"
+	fi
+	# Generate random UUIDs for VM and virtual disk
 	vmuuid=$(</proc/sys/kernel/random/uuid)
 	diskuuid=$(</proc/sys/kernel/random/uuid)
-	cat << _EOF_ > "${OUTPUT_IMG_NAME/_VM-/_VirtualBox-}.ovf"
+	# Create VM configuration
+	cat << _EOF_ > "$image_name.ovf"
 <?xml version="1.0"?>
-<Envelope ovf:version="1.0" xml:lang="en-US" xmlns="http://schemas.dmtf.org/ovf/envelope/1" xmlns:ovf="http://schemas.dmtf.org/ovf/envelope/1" xmlns:rasd="http://schemas.dmtf.org/wbem/wscim/1/cim-schema/2/CIM_ResourceAllocationSettingData" xmlns:vssd="http://schemas.dmtf.org/wbem/wscim/1/cim-schema/2/CIM_VirtualSystemSettingData" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:vbox="http://www.virtualbox.org/ovf/machine">
+<Envelope ovf:version="1.0" xml:lang="en-US" xmlns="http://schemas.dmtf.org/ovf/envelope/1" xmlns:ovf="http://schemas.dmtf.org/ovf/envelope/1" xmlns:rasd="http://schemas.dmtf.org/wbem/wscim/1/cim-schema/2/CIM_ResourceAllocationSettingData" xmlns:vssd="http://schemas.dmtf.org/wbem/wscim/1/cim-schema/2/CIM_VirtualSystemSettingData" xmlns:vbox="http://www.virtualbox.org/ovf/machine">
   <References>
-    <File ovf:id="file1" ovf:href="DietPi_VirtualBox-x86_64-${distro^}.vmdk"/>
+    <File ovf:id="file1" ovf:href="$image_name.vmdk"/>
   </References>
   <DiskSection>
     <Info>List of the virtual disks used in the package</Info>
@@ -363,7 +921,7 @@ then
       <Description>Logical network used by this appliance.</Description>
     </Network>
   </NetworkSection>
-  <VirtualSystem ovf:id="DietPi_VirtualBox-x86_64-${distro^}">
+  <VirtualSystem ovf:id="$image_name">
     <Info>A virtual machine</Info>
     <OperatingSystemSection ovf:id="96">
       <Info>The kind of installed guest operating system</Info>
@@ -375,7 +933,7 @@ then
       <System>
         <vssd:ElementName>Virtual Hardware Family</vssd:ElementName>
         <vssd:InstanceID>0</vssd:InstanceID>
-        <vssd:VirtualSystemIdentifier>DietPi_VirtualBox-x86_64-${distro^}</vssd:VirtualSystemIdentifier>
+        <vssd:VirtualSystemIdentifier>$image_name</vssd:VirtualSystemIdentifier>
         <vssd:VirtualSystemType>virtualbox-2.2</vssd:VirtualSystemType>
       </System>
       <Item>
@@ -397,11 +955,11 @@ then
       </Item>
       <Item>
         <rasd:Address>0</rasd:Address>
-        <rasd:Caption>sataController0</rasd:Caption>
-        <rasd:Description>SATA Controller</rasd:Description>
-        <rasd:ElementName>sataController0</rasd:ElementName>
+        <rasd:Caption>virtioSCSIController0</rasd:Caption>
+        <rasd:Description>VirtioSCSI Controller</rasd:Description>
+        <rasd:ElementName>virtioSCSIController0</rasd:ElementName>
         <rasd:InstanceID>3</rasd:InstanceID>
-        <rasd:ResourceSubType>AHCI</rasd:ResourceSubType>
+        <rasd:ResourceSubType>VirtioSCSI</rasd:ResourceSubType>
         <rasd:ResourceType>20</rasd:ResourceType>
       </Item>
       <Item>
@@ -423,7 +981,7 @@ then
         <rasd:ResourceType>10</rasd:ResourceType>
       </Item>
     </VirtualHardwareSection>
-    <vbox:Machine ovf:required="false" version="1.16-windows" uuid="{$vmuuid}" name="DietPi_VirtualBox-x86_64-${distro^}" OSType="Debian_64" snapshotFolder="Snapshots" lastStateChange="$(date -u '+%Y-%M-%dT%TZ')">
+    <vbox:Machine ovf:required="false" version="1.16-windows" uuid="{$vmuuid}" name="$image_name" OSType="Debian_64" snapshotFolder="Snapshots" lastStateChange="$(date -u '+%Y-%M-%dT%TZ')">
       <ovf:Info>Complete VirtualBox machine configuration in VirtualBox format</ovf:Info>
       <Hardware>
         <CPU>
@@ -434,12 +992,11 @@ then
         </CPU>
         <Memory RAMSize="1024"/>
         <Chipset type="ICH9"/>
+        <Paravirt provider="KVM"/>
         <Boot>
           <Order position="1" device="HardDisk"/>
-          <Order position="2" device="DVD"/>
         </Boot>
-        <Display VRAMSize="16"/>
-        <VideoCapture screens="1" file="." fps="25"/>
+        <Display controller="VMSVGA" VRAMSize="16"/>
         <BIOS>
           <IOAPIC enabled="true"/>
           <SmbiosUuidLittleEndian enabled="true"/>
@@ -451,69 +1008,252 @@ then
         </USB>
         <Network>
           <Adapter slot="0" enabled="true" type="virtio">
-            <DisabledModes>
-              <InternalNetwork name="intnet"/>
-              <NATNetwork name="NatNetwork"/>
-            </DisabledModes>
             <BridgedInterface name="eth0"/>
           </Adapter>
         </Network>
-        <AudioAdapter codec="AD1980" driver="DirectSound" enabledIn="false"/>
         <RTC localOrUTC="UTC"/>
         <Clipboard/>
+        <StorageControllers>
+          <StorageController name="VirtIO" type="VirtioSCSI" PortCount="1" useHostIOCache="false" Bootable="true">
+            <AttachedDevice type="HardDisk" hotpluggable="false" port="0" device="0">
+              <Image uuid="{$diskuuid}"/>
+            </AttachedDevice>
+          </StorageController>
+        </StorageControllers>
       </Hardware>
-      <StorageControllers>
-        <StorageController name="SATA" type="AHCI" PortCount="2" useHostIOCache="false" Bootable="true" IDE0MasterEmulationPort="0" IDE0SlaveEmulationPort="1" IDE1MasterEmulationPort="2" IDE1SlaveEmulationPort="3">
-          <AttachedDevice type="HardDisk" hotpluggable="false" port="0" device="0">
-            <Image uuid="{$diskuuid}"/>
-          </AttachedDevice>
-          <AttachedDevice passthrough="false" type="DVD" hotpluggable="false" port="1" device="0"/>
-        </StorageController>
-      </StorageControllers>
     </vbox:Machine>
   </VirtualSystem>
 </Envelope>
 _EOF_
-	cat << _EOF_ > "${OUTPUT_IMG_NAME/_VM-/_VirtualBox-}.mf"
-SHA1 (${OUTPUT_IMG_NAME/_VM-/_VirtualBox-}.ovf) = $(sha1sum "${OUTPUT_IMG_NAME/_VM-/_VirtualBox-}.ovf" | mawk '{print $1}')
-SHA1 (${OUTPUT_IMG_NAME/_VM-/_VirtualBox-}.vmdk) = $(sha1sum "${OUTPUT_IMG_NAME/_VM-/_VirtualBox-}.vmdk" | mawk '{print $1}')
+	# Create manifest file for automatic integrity check
+	cat << _EOF_ > "$image_name.mf"
+SHA1 ($image_name.ovf) = $(sha1sum "$image_name.ovf" | mawk '{print $1}')
+SHA1 ($image_name.vmdk) = $(sha1sum "$image_name.vmdk" | mawk '{print $1}')
 _EOF_
-	G_EXEC tar -cf "${OUTPUT_IMG_NAME/_VM-/_VirtualBox-}.ova" "${OUTPUT_IMG_NAME/_VM-/_VirtualBox-}."{vmdk,ovf,mf}
-	G_EXEC rm "${OUTPUT_IMG_NAME/_VM-/_VirtualBox-}."{vmdk,ovf,mf}
+	# Pack everything as OVA appliance for VirtualBox import
+	G_EXEC tar -cf "$image_name.ova" "$image_name."{ovf,vmdk,mf}
+	G_EXEC rm "$image_name."{ovf,vmdk,mf}
 
-	G_DIETPI-NOTIFY 2 'Generating hashes to pack with VMware image, please wait...'
-	cat << _EOF_ > hash.txt
-FILE:   ${OUTPUT_IMG_NAME/_VM-/_VirtualBox-}.ova
-DATE:   $(date)
-MD5:    $(md5sum "${OUTPUT_IMG_NAME/_VM-/_VirtualBox-}.ova" | mawk '{print $1}')
-SHA1:   $(sha1sum "${OUTPUT_IMG_NAME/_VM-/_VirtualBox-}.ova" | mawk '{print $1}')
-SHA256: $(sha256sum "${OUTPUT_IMG_NAME/_VM-/_VirtualBox-}.ova" | mawk '{print $1}')
-_EOF_
-	G_EXEC_DESC='Creating VirtualBox 7zip archive' G_EXEC_OUTPUT=1 G_EXEC 7zr a -bsp1 -bso1 -bse2 -m0=lzma2 -mx=9 $limit_threads "${OUTPUT_IMG_NAME/_VM-/_VirtualBox-}.7z" "${OUTPUT_IMG_NAME/_VM-/_VirtualBox-}.ova" hash.txt README.md
-	G_EXEC rm "${OUTPUT_IMG_NAME/_VM-/_VirtualBox-}.ova"
-	[[ -x 'upload.sh' ]] && G_EXEC_OUTPUT=1 G_EXEC ./upload.sh "${OUTPUT_IMG_NAME/_VM-/_VirtualBox-}.7z" && G_EXEC rm "${OUTPUT_IMG_NAME/_VM-/_VirtualBox-}.7z"
+	G_EXEC_DESC='Creating VirtualBox xz archive' G_EXEC xz -9e "${limit_threads[@]}" "$image_name.ova"
+	G_EXEC_DESC='Generating SHA256 hash' G_EXEC eval "sha256sum '$image_name.ova.xz' > '$image_name.ova.xz.sha256'"
+	signature=()
+	[[ $SIGN_PASS ]] && { G_DIETPI-NOTIFY 2 'Signing archive ...'; gpg --batch --pinentry-mode loopback --passphrase "$SIGN_PASS" -b --armor "$image_name.ova.xz" || exit 1; signature=("$image_name.ova.xz.asc"); }
+	[[ -x 'upload.sh' ]] && G_EXEC_OUTPUT=1 G_EXEC ./upload.sh "$image_name.ova.xz"{,.sha256} "${signature[@]}" && G_EXEC rm "$image_name.ova.xz"{,.sha256} "${signature[@]}"
 fi
 
-# Hyper-V
+####### Hyper-V ##########################
 if [[ $VMTYPE =~ ^(hyperv|all)$ ]]
 then
-	G_EXEC qemu-img convert -O vhdx "$OUTPUT_IMG_NAME.img" "${OUTPUT_IMG_NAME/_VM-/_Hyper-V-}.vhdx"
+	image_name=${OUTPUT_IMG_NAME/_VM-/_Hyper-V-}
+	# Convert raw image to VHDX
+	G_EXEC qemu-img convert -O vhdx "$OUTPUT_IMG_NAME.img" "$image_name.vhdx"
 
-	G_DIETPI-NOTIFY 2 'Generating hashes to pack with Hyper-V image, please wait...'
-	cat << _EOF_ > hash.txt
-FILE:   ${OUTPUT_IMG_NAME/_VM-/_Hyper-V-}.vhdx
-DATE:   $(date)
-MD5:    $(md5sum "${OUTPUT_IMG_NAME/_VM-/_Hyper-V-}.vhdx" | mawk '{print $1}')
-SHA1:   $(sha1sum "${OUTPUT_IMG_NAME/_VM-/_Hyper-V-}.vhdx" | mawk '{print $1}')
-SHA256: $(sha256sum "${OUTPUT_IMG_NAME/_VM-/_Hyper-V-}.vhdx" | mawk '{print $1}')
+	G_EXEC_DESC='Creating Hyper-V xz archive' G_EXEC xz -9e "${limit_threads[@]}" "$image_name.vhdx"
+	G_EXEC_DESC='Generating SHA256 hash' G_EXEC eval "sha256sum '$image_name.vhdx.xz' > '$image_name.vhdx.xz.sha256'"
+	signature=()
+	[[ $SIGN_PASS ]] && { G_DIETPI-NOTIFY 2 'Signing archive ...'; gpg --batch --pinentry-mode loopback --passphrase "$SIGN_PASS" -b --armor "$image_name.vhdx.xz" || exit 1; signature=("$image_name.vhdx.xz.asc"); }
+	[[ -x 'upload.sh' ]] && G_EXEC_OUTPUT=1 G_EXEC ./upload.sh "$image_name.vhdx.xz"{,.sha256} "${signature[@]}" && G_EXEC rm "$image_name.vhdx.xz"{,.sha256} "${signature[@]}"
+fi
+
+####### UTM ##############################
+if [[ $VMTYPE =~ ^(utm|all)$ ]]
+then
+	image_name=${OUTPUT_IMG_NAME/_VM-/_UTM-}
+	# Create directory which is interpreted as VM appliance file on macOS
+	G_EXEC mkdir -p "$image_name.utm/Images"
+	# Convert raw image to QCOW2
+	G_EXEC qemu-img convert -c -O qcow2 "$OUTPUT_IMG_NAME.img" "$image_name.utm/Images/data.qcow2"
+	# Generate random MAC address and UUID for VM
+	mac=$(tr -dc '0-9A-F' < /dev/urandom | head -c10 | sed -E 's/(..)/\1:/g;s/:$//;s/^/02:/') # ToDo: Beginning with "D2:"?
+	vmuuid=$(</proc/sys/kernel/random/uuid)
+	# Create VM configuration
+	cat << _EOF_ > "$image_name.utm/config.plist"
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>ConfigurationVersion</key>
+	<integer>2</integer>
+	<key>Debug</key>
+	<dict/>
+	<key>Display</key>
+	<dict>
+		<key>ConsoleFont</key>
+		<string>Menlo</string>
+		<key>ConsoleFontSize</key>
+		<integer>12</integer>
+		<key>ConsoleOnly</key>
+		<false/>
+		<key>ConsoleTheme</key>
+		<string>Default</string>
+		<key>DisplayCard</key>
+		<string>virtio-vga</string>
+		<key>DisplayDownscaler</key>
+		<string>linear</string>
+		<key>DisplayUpscaler</key>
+		<string>nearest</string>
+	</dict>
+	<key>Drives</key>
+	<array>
+		<dict>
+			<key>DriveName</key>
+			<string>cdrom0</string>
+			<key>ImageType</key>
+			<string>cd</string>
+			<key>InterfaceType</key>
+			<string>ide</string>
+			<key>Removable</key>
+			<true/>
+		</dict>
+		<dict>
+			<key>DriveName</key>
+			<string>drive0</string>
+			<key>ImagePath</key>
+			<string>data.qcow2</string>
+			<key>ImageType</key>
+			<string>disk</string>
+			<key>InterfaceType</key>
+			<string>ide</string>
+		</dict>
+	</array>
+	<key>Info</key>
+	<dict>
+		<key>Icon</key>
+		<string>linux</string>
+		<key>IconCustom</key>
+		<false/>
+	</dict>
+	<key>Input</key>
+	<dict/>
+	<key>Networking</key>
+	<dict>
+		<key>NetworkCard</key>
+		<string>e1000</string>
+		<key>NetworkCardMAC</key>
+		<string>$mac</string>
+		<key>NetworkMode</key>
+		<string>bridged</string>
+	</dict>
+	<key>Printing</key>
+	<dict/>
+	<key>Sharing</key>
+	<dict>
+		<key>ClipboardSharing</key>
+		<true/>
+		<key>DirectoryReadOnly</key>
+		<false/>
+		<key>DirectorySharing</key>
+		<true/>
+		<key>Usb3Support</key>
+		<true/>
+		<key>UsbRedirectMax</key>
+		<integer>3</integer>
+	</dict>
+	<key>Sound</key>
+	<dict>
+		<key>SoundCard</key>
+		<string>intel-hda</string>
+		<key>SoundEnabled</key>
+		<false/>
+	</dict>
+	<key>System</key>
+	<dict>
+		<key>Architecture</key>
+		<string>$iarch</string>
+		<key>BootDevice</key>
+		<string></string>
+		<key>BootUefi</key>
+		<false/>
+		<key>CPU</key>
+		<string>default</string>
+		<key>CPUCount</key>
+		<integer>1</integer>
+		<key>MachineProperties</key>
+		<string>vmport=off</string>
+		<key>Memory</key>
+		<integer>1024</integer>
+		<key>RngEnabled</key>
+		<true/>
+		<key>SystemUUID</key>
+		<string>${vmuuid^^}</string>
+		<key>Target</key>
+		<string>q35</string>
+		<key>UseHypervisor</key>
+		<true/>
+	</dict>
+</dict>
+</plist>
 _EOF_
-	G_EXEC_DESC='Creating Hyper-V 7zip archive' G_EXEC_OUTPUT=1 G_EXEC 7zr a -bsp1 -bso1 -bse2 -m0=lzma2 -mx=9 $limit_threads "${OUTPUT_IMG_NAME/_VM-/_Hyper-V-}.7z" "${OUTPUT_IMG_NAME/_VM-/_Hyper-V-}.vhdx" hash.txt README.md
-	G_EXEC rm "${OUTPUT_IMG_NAME/_VM-/_Hyper-V-}.vhdx"
-	[[ -x 'upload.sh' ]] && G_EXEC_OUTPUT=1 G_EXEC ./upload.sh "${OUTPUT_IMG_NAME/_VM-/_Hyper-V-}.7z" && G_EXEC rm "${OUTPUT_IMG_NAME/_VM-/_Hyper-V-}.7z"
+	# Create VM interface config
+	cat << '_EOF_' > "$image_name.utm/view.plist"
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>DisplayOriginX</key>
+	<real>0.0</real>
+	<key>DisplayOriginY</key>
+	<real>0.0</real>
+	<key>DisplayScale</key>
+	<real>1</real>
+	<key>DisplaySizeHeight</key>
+	<real>768</real>
+	<key>DisplaySizeWidth</key>
+	<real>1024</real>
+	<key>RemovableDrives</key>
+	<dict/>
+	<key>RemovableDrivesPath</key>
+	<dict/>
+	<key>ShowKeyboard</key>
+	<false/>
+	<key>ShowToolbar</key>
+	<true/>
+	<key>Suspended</key>
+	<false/>
+</dict>
+</plist>
+_EOF_
+	G_EXEC_DESC='Creating UTM tar.xz archive' XZ_OPT="-9e ${limit_threads[*]}" G_EXEC tar -cJf "$image_name.tar.xz" "$image_name.utm"
+	G_EXEC rm -R "$image_name.utm"
+	G_EXEC_DESC='Generating SHA256 hash' G_EXEC eval "sha256sum '$image_name.tar.xz' > '$image_name.tar.xz.sha256'"
+	signature=()
+	[[ $SIGN_PASS ]] && { G_DIETPI-NOTIFY 2 'Signing archive ...'; gpg --batch --pinentry-mode loopback --passphrase "$SIGN_PASS" -b --armor "$image_name.tar.xz" || exit 1; signature=("$image_name.tar.xz.asc"); }
+	[[ -x 'upload.sh' ]] && G_EXEC_OUTPUT=1 G_EXEC ./upload.sh "$image_name.tar.xz"{,.sha256} "${signature[@]}" && G_EXEC rm "$image_name.tar.xz"{,.sha256} "${signature[@]}"
+fi
+
+####### Proxmox ############################
+if [[ $VMTYPE =~ ^(proxmox|all)$ ]]
+then
+	# Enable systemd-logind for APCI functionality
+	# - Create loop device
+	FP_LOOP=$(losetup -f)
+	G_EXEC losetup "$FP_LOOP" "$OUTPUT_IMG_NAME.img"
+	G_EXEC partprobe "$FP_LOOP"
+	G_EXEC partx -u "$FP_LOOP"
+	# - Mount and edit dietpi.txt
+	G_EXEC mkdir rootfs
+	G_EXEC mount "${FP_LOOP}p1" rootfs
+	G_CONFIG_INJECT 'AUTO_UNMASK_LOGIND=' 'AUTO_UNMASK_LOGIND=1' rootfs/boot/dietpi.txt
+	# - Remove loop device
+	G_EXEC sync
+	G_EXEC sleep 1
+	G_EXEC umount -R rootfs
+	G_EXEC rmdir rootfs
+	G_EXEC losetup -d "$FP_LOOP"
+
+	# Convert raw image to QCOW2
+	image_name=${OUTPUT_IMG_NAME/_VM-/_Proxmox-}
+	G_EXEC qemu-img convert -c -O qcow2 "$OUTPUT_IMG_NAME.img" "$image_name.qcow2"
+
+	G_EXEC_DESC='Creating Proxmox xz archive' G_EXEC xz -9e "${limit_threads[@]}" "$image_name.qcow2"
+	G_EXEC_DESC='Generating SHA256 hash' G_EXEC eval "sha256sum '$image_name.qcow2.xz' > '$image_name.qcow2.xz.sha256'"
+	signature=()
+	[[ $SIGN_PASS ]] && { G_DIETPI-NOTIFY 2 'Signing archive ...'; gpg --batch --pinentry-mode loopback --passphrase "$SIGN_PASS" -b --armor "$image_name.qcow2.xz" || exit 1; signature=("$image_name.qcow2.xz.asc"); }
+	[[ -x 'upload.sh' ]] && G_EXEC_OUTPUT=1 G_EXEC ./upload.sh "$image_name.qcow2.xz"{,.sha256} "${signature[@]}" && G_EXEC rm "$image_name.qcow2.xz"{,.sha256} "${signature[@]}"
 fi
 
 # Cleanup
-G_EXEC rm hash.txt README.md "$OUTPUT_IMG_NAME.img"
+G_EXEC rm "$OUTPUT_IMG_NAME.img"
 
 exit 0
 }

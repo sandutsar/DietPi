@@ -17,6 +17,7 @@ shopt -s extglob
 		[2]='Raspberry Pi 2'
 		[3]='Raspberry Pi 3/3+/Zero 2'
 		[4]='Raspberry Pi 4'
+		[5]='Raspberry Pi 5'
 		[10]='Odroid C1'
 		[11]='Odroid XU3/XU4/MC1/HC1/HC2'
 		[12]='Odroid C2'
@@ -26,13 +27,13 @@ shopt -s extglob
 		[20]='x86_64 VM'
 		[21]='x86_64 PC'
 		[22]='Generic Device'
-		[29]='Generic Amlogic S922X'
-		[28]='Generic Amlogic S905'
-		[27]='Generic Allwinner H6'
-		[26]='Generic Allwinner H5'
-		[25]='Generic Allwinner H3'
-		[24]='Generic Rockchip RK3399'
 		[23]='Generic Rockchip RK3328'
+		[24]='Generic Rockchip RK3399'
+		[25]='Generic Allwinner H3'
+		[26]='Generic Allwinner H5'
+		[27]='Generic Allwinner H6'
+		[28]='Generic Amlogic S905'
+		[29]='Generic Amlogic S922X'
 		[30]='OrangePi PC'
 		[31]='OrangePi One'
 		[32]='OrangePi Zero (H2+)'
@@ -52,6 +53,7 @@ shopt -s extglob
 		[46]='Pinebook Pro'
 		[47]='NanoPi R4S'
 		[48]='NanoPi R1'
+		[49]='Quartz64'
 		[50]='BananaPi M2+ (sinovoip)'
 		[51]='BananaPi Pro (Lemaker)'
 		[52]='ASUS Tinker Board'
@@ -65,7 +67,7 @@ shopt -s extglob
 		[60]='NanoPi NEO'
 		[61]='NanoPi M2/T2'
 		[62]='NanoPi M3/T3/Fire3'
-		[63]='NanoPi M1/T1'
+		[63]='NanoPi M1'
 		[64]='NanoPi NEO Air'
 		[65]='NanoPi NEO2'
 		[66]='NanoPi M1 Plus'
@@ -74,9 +76,22 @@ shopt -s extglob
 		[69]='Firefly RK3399'
 		[70]='Sparky SBC'
 		[71]='BeagleBone Black'
-		[72]='ROCK Pi 4'
+		[72]='ROCK 4'
 		[73]='ROCK Pi S'
 		[74]='Radxa Zero'
+		[75]='Container'
+		[76]='NanoPi R5S/R5C'
+		[77]='ROCK 3A'
+		[78]='ROCK 5B'
+		[79]='NanoPi 6 series'
+		[80]='Orange Pi 5'
+		[81]='StarFive VisionFive 2'
+		[82]='Orange Pi 5 Plus'
+		[83]='Orange Pi Zero 3'
+		[84]='Star64'
+		[85]='ROCK 5A'
+		[86]='ASUS Tinker Board 2'
+		[87]='Orange Pi 3B'
 	)
 
 	## Benchmark data arrays: aBENCH_XX[$HW_MODEL,${aBENCH_XX_INDEX[$HW_MODEL]}]
@@ -86,6 +101,7 @@ shopt -s extglob
 	aBENCH_CPU_INDEX=()
 	declare -A aBENCH_CPU
 	# - CPU temp in integer °C
+	aBENCH_CPU_TEMP_INDEX=()
 	declare -A aBENCH_CPU_TEMP_START
 	declare -A aBENCH_CPU_TEMP_END
 	# - I/O in integer MiB/s
@@ -169,7 +185,7 @@ shopt -s extglob
 		[2]='Desktop auto login'
 		[3]='RetroPie'
 		[4]='OpenTyrian'
-		[5]='DietPi-Cloudshell'
+		[5]='DietPi-CloudShell'
 		[6]='Amiberry fast boot'
 		[7]='Console auto login'
 		[8]='Amiberry standard boot'
@@ -200,7 +216,7 @@ shopt -s extglob
 		[13]='MTR-Tiny'
 		[14]='nLoad'
 		[15]='tcpdump'
-		[16]='Build-Essentials'
+		[16]='Build-Essential'
 		[17]='Git Client'
 		[18]='Emacs'
 		[19]='Jed'
@@ -239,11 +255,11 @@ shopt -s extglob
 		[52]='Cuberite'
 		[53]='MineOS'
 		[54]='phpBB'
-		[55]='Wordpress'
+		[55]='WordPress'
 		[56]='Single File PHP Gallery'
 		[57]='Baïkal'
 		[58]='OpenBazaar'
-		[59]='RPi Cam Control'
+		[59]='RPi Cam Web Interface'
 		[60]='WiFi Hotspot'
 		[61]='Tor Hotspot'
 		[62]='DietPi-CloudShell'
@@ -252,7 +268,7 @@ shopt -s extglob
 		[65]='Netdata'
 		[66]='RPi-Monitor'
 		[67]='No-IP'
-		[68]='Remot3.it'
+		[68]='Remote.It'
 		[69]='RPi.GPIO'
 		[70]='WiringPi'
 		[71]='WebIOPi'
@@ -320,7 +336,7 @@ shopt -s extglob
 		[133]='YaCy'
 		[134]='Tonido'
 		[135]='IceCast'
-		[136]='MotionEye'
+		[136]='motionEye'
 		[137]='CloudPrint'
 		[138]='VirtualHere'
 		[139]='SABnzbd'
@@ -356,125 +372,112 @@ shopt -s extglob
 		[169]='Google AIY'
 	)
 
-	# v6.14 (earliest version that can currently upload) + v6.15
 	aSOFTWARE_NAME6_14=()
 	aSOFTWARE_NAME6_15=()
 	for i in "${!aSOFTWARE_NAME[@]}"
 	do
-		aSOFTWARE_NAME6_14[$i]=${aSOFTWARE_NAME[$i]}
-		aSOFTWARE_NAME6_15[$i]=${aSOFTWARE_NAME6_14[$i]}
+		aSOFTWARE_NAME6_14[i]=${aSOFTWARE_NAME[i]}
+		aSOFTWARE_NAME6_15[i]=${aSOFTWARE_NAME6_14[i]}
 	done
 	aSOFTWARE_NAME6_15[148]='myMPD'
 
-	# v6.16 + v6.17 + v6.18
 	aSOFTWARE_NAME6_16=()
 	aSOFTWARE_NAME6_17=()
 	aSOFTWARE_NAME6_18=()
 	for i in "${!aSOFTWARE_NAME6_15[@]}"
 	do
-		aSOFTWARE_NAME6_16[$i]=${aSOFTWARE_NAME6_15[$i]}
-		aSOFTWARE_NAME6_17[$i]=${aSOFTWARE_NAME6_16[$i]}
-		aSOFTWARE_NAME6_18[$i]=${aSOFTWARE_NAME6_17[$i]}
+		aSOFTWARE_NAME6_16[i]=${aSOFTWARE_NAME6_15[i]}
+		aSOFTWARE_NAME6_17[i]=${aSOFTWARE_NAME6_16[i]}
+		aSOFTWARE_NAME6_18[i]=${aSOFTWARE_NAME6_17[i]}
 	done
 	aSOFTWARE_NAME6_18[168]='Nextcloud Talk'
 
-	# v6.19 + v6.20
 	aSOFTWARE_NAME6_19=()
 	aSOFTWARE_NAME6_20=()
 	for i in "${!aSOFTWARE_NAME6_18[@]}"
 	do
-		aSOFTWARE_NAME6_19[$i]=${aSOFTWARE_NAME6_18[$i]}
-		aSOFTWARE_NAME6_20[$i]=${aSOFTWARE_NAME6_19[$i]}
+		aSOFTWARE_NAME6_19[i]=${aSOFTWARE_NAME6_18[i]}
+		aSOFTWARE_NAME6_20[i]=${aSOFTWARE_NAME6_19[i]}
 	done
 	aSOFTWARE_NAME6_20[116]='Medusa'
 	aSOFTWARE_NAME6_20[170]='UnRAR'
 	aSOFTWARE_NAME6_20[171]='DietPi-NordVPN'
 	aSOFTWARE_NAME6_20[172]='WireGuard'
 
-	# v6.21 + v6.22 + v6.23
 	aSOFTWARE_NAME6_21=()
 	aSOFTWARE_NAME6_22=()
 	aSOFTWARE_NAME6_23=()
 	for i in "${!aSOFTWARE_NAME6_20[@]}"
 	do
-		aSOFTWARE_NAME6_21[$i]=${aSOFTWARE_NAME6_20[$i]}
-		aSOFTWARE_NAME6_22[$i]=${aSOFTWARE_NAME6_21[$i]}
-		aSOFTWARE_NAME6_23[$i]=${aSOFTWARE_NAME6_22[$i]}
+		aSOFTWARE_NAME6_21[i]=${aSOFTWARE_NAME6_20[i]}
+		aSOFTWARE_NAME6_22[i]=${aSOFTWARE_NAME6_21[i]}
+		aSOFTWARE_NAME6_23[i]=${aSOFTWARE_NAME6_22[i]}
 	done
 	aSOFTWARE_NAME6_23[173]='LXQt'
 	aSOFTWARE_NAME6_23[174]='GIMP'
 	aSOFTWARE_NAME6_23[175]='Xfce Power Manager'
 
-	# v6.24 + v6.25
 	aSOFTWARE_NAME6_24=()
 	aSOFTWARE_NAME6_25=()
 	for i in "${!aSOFTWARE_NAME6_23[@]}"
 	do
-		aSOFTWARE_NAME6_24[$i]=${aSOFTWARE_NAME6_23[$i]}
-		aSOFTWARE_NAME6_25[$i]=${aSOFTWARE_NAME6_24[$i]}
+		aSOFTWARE_NAME6_24[i]=${aSOFTWARE_NAME6_23[i]}
+		aSOFTWARE_NAME6_25[i]=${aSOFTWARE_NAME6_24[i]}
 	done
 	aSOFTWARE_NAME6_25[176]='Mycroft AI'
 
-	# v6.26
 	aSOFTWARE_NAME6_26=()
 	for i in "${!aSOFTWARE_NAME6_25[@]}"
 	do
-		aSOFTWARE_NAME6_26[$i]=${aSOFTWARE_NAME6_25[$i]}
+		aSOFTWARE_NAME6_26[i]=${aSOFTWARE_NAME6_25[i]}
 	done
 	unset -v 'aSOFTWARE_NAME6_26[27]' # TightVNC: Replaced by TigerVNC on Stretch+
 	unset -v 'aSOFTWARE_NAME6_26[140]' # SDL2: Merged into Amiberry for targeted minimal install
 
-
-	# v6.27
 	aSOFTWARE_NAME6_27=()
 	for i in "${!aSOFTWARE_NAME6_26[@]}"
 	do
-		aSOFTWARE_NAME6_27[$i]=${aSOFTWARE_NAME6_26[$i]}
+		aSOFTWARE_NAME6_27[i]=${aSOFTWARE_NAME6_26[i]}
 	done
 	aSOFTWARE_NAME6_27[27]='TasmoAdmin'
 
-	# v6.28 + v6.29
 	aSOFTWARE_NAME6_28=()
 	aSOFTWARE_NAME6_29=()
 	for i in "${!aSOFTWARE_NAME6_27[@]}"
 	do
-		aSOFTWARE_NAME6_28[$i]=${aSOFTWARE_NAME6_27[$i]}
-		aSOFTWARE_NAME6_29[$i]=${aSOFTWARE_NAME6_28[$i]}
+		aSOFTWARE_NAME6_28[i]=${aSOFTWARE_NAME6_27[i]}
+		aSOFTWARE_NAME6_29[i]=${aSOFTWARE_NAME6_28[i]}
 	done
 	aSOFTWARE_NAME6_29[140]='Domoticz'
 
-	# v6.30 + v6.31
 	aSOFTWARE_NAME6_30=()
 	aSOFTWARE_NAME6_31=()
 	for i in "${!aSOFTWARE_NAME6_29[@]}"
 	do
-		aSOFTWARE_NAME6_30[$i]=${aSOFTWARE_NAME6_29[$i]}
-		aSOFTWARE_NAME6_31[$i]=${aSOFTWARE_NAME6_30[$i]}
+		aSOFTWARE_NAME6_30[i]=${aSOFTWARE_NAME6_29[i]}
+		aSOFTWARE_NAME6_31[i]=${aSOFTWARE_NAME6_30[i]}
 	done
 	aSOFTWARE_NAME6_31[177]='Firefox Sync Server'
 
-	# v6.32
 	aSOFTWARE_NAME6_32=()
 	for i in "${!aSOFTWARE_NAME6_31[@]}"
 	do
-		aSOFTWARE_NAME6_32[$i]=${aSOFTWARE_NAME6_31[$i]}
+		aSOFTWARE_NAME6_32[i]=${aSOFTWARE_NAME6_31[i]}
 	done
 	aSOFTWARE_NAME6_32[178]='Jellyfin'
 	aSOFTWARE_NAME6_32[179]='Komga'
 
-	# v6.33
 	aSOFTWARE_NAME6_33=()
 	for i in "${!aSOFTWARE_NAME6_32[@]}"
 	do
-		aSOFTWARE_NAME6_33[$i]=${aSOFTWARE_NAME6_32[$i]}
+		aSOFTWARE_NAME6_33[i]=${aSOFTWARE_NAME6_32[i]}
 	done
 	aSOFTWARE_NAME6_33[180]='Bazarr'
 
-	# v6.34
 	aSOFTWARE_NAME6_34=()
 	for i in "${!aSOFTWARE_NAME6_33[@]}"
 	do
-		aSOFTWARE_NAME6_34[$i]=${aSOFTWARE_NAME6_33[$i]}
+		aSOFTWARE_NAME6_34[i]=${aSOFTWARE_NAME6_33[i]}
 	done
 	unset -v 'aSOFTWARE_NAME6_34[62]' # DietPi-CloudShell
 	unset -v 'aSOFTWARE_NAME6_34[134]' # Tonido
@@ -489,19 +492,18 @@ shopt -s extglob
 	aSOFTWARE_NAME6_35=()
 	for i in "${!aSOFTWARE_NAME6_34[@]}"
 	do
-		aSOFTWARE_NAME6_35[$i]=${aSOFTWARE_NAME6_34[$i]}
+		aSOFTWARE_NAME6_35[i]=${aSOFTWARE_NAME6_34[i]}
 	done
 	aSOFTWARE_NAME6_35[62]='Box86'
 	aSOFTWARE_NAME6_35[134]='Docker Compose'
 	aSOFTWARE_NAME6_35[137]='mjpg-streamer'
 
-	# v7.0 (identical to v6.35 transition version) + v7.1
 	aSOFTWARE_NAME7_0=()
 	aSOFTWARE_NAME7_1=()
 	for i in "${!aSOFTWARE_NAME6_35[@]}"
 	do
-		aSOFTWARE_NAME7_0[$i]=${aSOFTWARE_NAME6_35[$i]}
-		aSOFTWARE_NAME7_1[$i]=${aSOFTWARE_NAME7_0[$i]}
+		aSOFTWARE_NAME7_0[i]=${aSOFTWARE_NAME6_35[i]}
+		aSOFTWARE_NAME7_1[i]=${aSOFTWARE_NAME7_0[i]}
 	done
 	aSOFTWARE_NAME7_1[186]='IPFS Node'
 	aSOFTWARE_NAME7_1[187]='CUPS'
@@ -510,20 +512,18 @@ shopt -s extglob
 	unset -v 'aSOFTWARE_NAME7_1[67]' # No-IP: Replaced with DietPi-DDNS
 	unset -v 'aSOFTWARE_NAME7_1[171]' # DietPi-NordVPN: Replaced with DietPi-VPN
 
-	# v7.2
 	aSOFTWARE_NAME7_2=()
 	for i in "${!aSOFTWARE_NAME7_1[@]}"
 	do
-		aSOFTWARE_NAME7_2[$i]=${aSOFTWARE_NAME7_1[$i]}
+		aSOFTWARE_NAME7_2[i]=${aSOFTWARE_NAME7_1[i]}
 	done
 	aSOFTWARE_NAME7_2[67]='Firefox'
 	unset -v 'aSOFTWARE_NAME7_2[126]' # LibSSL1.0.0
 
-	# v7.3
 	aSOFTWARE_NAME7_3=()
 	for i in "${!aSOFTWARE_NAME7_2[@]}"
 	do
-		aSOFTWARE_NAME7_3[$i]=${aSOFTWARE_NAME7_2[$i]}
+		aSOFTWARE_NAME7_3[i]=${aSOFTWARE_NAME7_2[i]}
 	done
 	aSOFTWARE_NAME7_3[126]='AdGuard Home'
 	aSOFTWARE_NAME7_3[171]='frp'
@@ -533,67 +533,189 @@ shopt -s extglob
 	aSOFTWARE_NAME7_3[193]='K3s'
 	unset -v 'aSOFTWARE_NAME7_3[125]' # Tomcat 8
 
-	# v7.4
 	aSOFTWARE_NAME7_4=()
 	for i in "${!aSOFTWARE_NAME7_3[@]}"
 	do
-		aSOFTWARE_NAME7_4[$i]=${aSOFTWARE_NAME7_3[$i]}
+		aSOFTWARE_NAME7_4[i]=${aSOFTWARE_NAME7_3[i]}
 	done
 	aSOFTWARE_NAME7_4[125]='Synapse Server'
 	aSOFTWARE_NAME7_4[194]='PostgreSQL'
 	aSOFTWARE_NAME7_4[195]='youtube-dl'
 
-	# v7.5
 	aSOFTWARE_NAME7_5=()
 	for i in "${!aSOFTWARE_NAME7_4[@]}"
 	do
-		aSOFTWARE_NAME7_5[$i]=${aSOFTWARE_NAME7_4[$i]}
+		aSOFTWARE_NAME7_5[i]=${aSOFTWARE_NAME7_4[i]}
 	done
 	aSOFTWARE_NAME7_5[196]='Java JRE'
 
-	# v7.6
 	aSOFTWARE_NAME7_6=()
 	for i in "${!aSOFTWARE_NAME7_5[@]}"
 	do
-		aSOFTWARE_NAME7_6[$i]=${aSOFTWARE_NAME7_5[$i]}
+		aSOFTWARE_NAME7_6[i]=${aSOFTWARE_NAME7_5[i]}
 	done
 	aSOFTWARE_NAME7_6[197]='Box64'
 	aSOFTWARE_NAME7_6[198]='File Browser'
 	aSOFTWARE_NAME7_6[199]='Spotifyd'
 
-	# v7.7
 	aSOFTWARE_NAME7_7=()
 	for i in "${!aSOFTWARE_NAME7_6[@]}"
 	do
-		aSOFTWARE_NAME7_7[$i]=${aSOFTWARE_NAME7_6[$i]}
+		aSOFTWARE_NAME7_7[i]=${aSOFTWARE_NAME7_6[i]}
 	done
 	unset -v 'aSOFTWARE_NAME7_7[142]' # CouchPotato
 
-	# v7.8
 	aSOFTWARE_NAME7_8=()
 	for i in "${!aSOFTWARE_NAME7_7[@]}"
 	do
-		aSOFTWARE_NAME7_8[$i]=${aSOFTWARE_NAME7_7[$i]}
+		aSOFTWARE_NAME7_8[i]=${aSOFTWARE_NAME7_7[i]}
 	done
 	unset -v 'aSOFTWARE_NAME7_8[34]' # Subsonic
 	unset -v 'aSOFTWARE_NAME7_8[99]' # emonHub
 	aSOFTWARE_NAME7_8[200]='DietPi-Dashboard'
 
-	# v7.9 + v8.0 + v8.1
 	aSOFTWARE_NAME7_9=()
 	aSOFTWARE_NAME8_0=()
 	aSOFTWARE_NAME8_1=()
+	aSOFTWARE_NAME8_2=()
 	for i in "${!aSOFTWARE_NAME7_8[@]}"
 	do
-		aSOFTWARE_NAME7_9[$i]=${aSOFTWARE_NAME7_8[$i]}
-		aSOFTWARE_NAME8_0[$i]=${aSOFTWARE_NAME7_9[$i]}
-		aSOFTWARE_NAME8_1[$i]=${aSOFTWARE_NAME8_0[$i]}
+		aSOFTWARE_NAME7_9[i]=${aSOFTWARE_NAME7_8[i]}
+		aSOFTWARE_NAME8_0[i]=${aSOFTWARE_NAME7_9[i]}
+		aSOFTWARE_NAME8_1[i]=${aSOFTWARE_NAME8_0[i]}
+		aSOFTWARE_NAME8_2[i]=${aSOFTWARE_NAME8_1[i]}
+	done
+	aSOFTWARE_NAME8_2[142]='MicroK8s'
+	unset -v 'aSOFTWARE_NAME8_2[151]' # Nvidia
+
+	aSOFTWARE_NAME8_3=()
+	for i in "${!aSOFTWARE_NAME8_2[@]}"
+	do
+		aSOFTWARE_NAME8_3[i]=${aSOFTWARE_NAME8_2[i]}
+	done
+	aSOFTWARE_NAME8_3[34]='PHP Composer'
+
+	aSOFTWARE_NAME8_4=()
+	for i in "${!aSOFTWARE_NAME8_3[@]}"
+	do
+		aSOFTWARE_NAME8_4[i]=${aSOFTWARE_NAME8_3[i]}
+	done
+	unset -v 'aSOFTWARE_NAME8_4[58]' # OpenBazaar
+
+	aSOFTWARE_NAME8_5=()
+	for i in "${!aSOFTWARE_NAME8_4[@]}"
+	do
+		aSOFTWARE_NAME8_5[i]=${aSOFTWARE_NAME8_4[i]}
+	done
+	aSOFTWARE_NAME8_5[151]='Prowlarr'
+
+	aSOFTWARE_NAME8_6=()
+	for i in "${!aSOFTWARE_NAME8_5[@]}"
+	do
+		aSOFTWARE_NAME8_6[i]=${aSOFTWARE_NAME8_5[i]}
+	done
+	aSOFTWARE_NAME8_6[58]='Tailscale'
+	aSOFTWARE_NAME8_6[99]='Prometheus Node Exporter'
+	aSOFTWARE_NAME8_6[201]='ZeroTier'
+	aSOFTWARE_NAME8_6[202]='Rclone'
+
+	aSOFTWARE_NAME8_7=()
+	for i in "${!aSOFTWARE_NAME8_6[@]}"
+	do
+		aSOFTWARE_NAME8_7[i]=${aSOFTWARE_NAME8_6[i]}
+	done
+	aSOFTWARE_NAME8_7[203]='Readarr'
+	aSOFTWARE_NAME8_7[204]='Navidrome'
+
+	aSOFTWARE_NAME8_8=()
+	aSOFTWARE_NAME8_9=()
+	aSOFTWARE_NAME8_10=()
+	aSOFTWARE_NAME8_11=()
+	for i in "${!aSOFTWARE_NAME8_7[@]}"
+	do
+		aSOFTWARE_NAME8_8[i]=${aSOFTWARE_NAME8_7[i]}
+		aSOFTWARE_NAME8_9[i]=${aSOFTWARE_NAME8_8[i]}
+		aSOFTWARE_NAME8_10[i]=${aSOFTWARE_NAME8_9[i]}
+		aSOFTWARE_NAME8_11[i]=${aSOFTWARE_NAME8_10[i]}
+	done
+	aSOFTWARE_NAME8_11[205]='Homer'
+
+	aSOFTWARE_NAME8_12=()
+	aSOFTWARE_NAME8_13=()
+	aSOFTWARE_NAME8_14=()
+	aSOFTWARE_NAME8_15=()
+	for i in "${!aSOFTWARE_NAME8_11[@]}"
+	do
+		aSOFTWARE_NAME8_12[i]=${aSOFTWARE_NAME8_11[i]}
+		aSOFTWARE_NAME8_13[i]=${aSOFTWARE_NAME8_12[i]}
+		aSOFTWARE_NAME8_14[i]=${aSOFTWARE_NAME8_13[i]}
+		aSOFTWARE_NAME8_15[i]=${aSOFTWARE_NAME8_14[i]}
+	done
+	unset -v 'aSOFTWARE_NAME8_15[16]' # Build-Essential
+
+	aSOFTWARE_NAME8_16=()
+	for i in "${!aSOFTWARE_NAME8_15[@]}"
+	do
+		aSOFTWARE_NAME8_16[i]=${aSOFTWARE_NAME8_15[i]}
+	done
+	aSOFTWARE_NAME8_16[16]='microblog.pub'
+
+	aSOFTWARE_NAME8_17=()
+	for i in "${!aSOFTWARE_NAME8_16[@]}"
+	do
+		aSOFTWARE_NAME8_17[i]=${aSOFTWARE_NAME8_16[i]}
+	done
+	aSOFTWARE_NAME8_17[206]='openHAB'
+	aSOFTWARE_NAME8_17[207]='Moonlight (CLI)'
+	aSOFTWARE_NAME8_17[208]='Moonlight (GUI)'
+	aSOFTWARE_NAME8_17[209]='Restic'
+
+	aSOFTWARE_NAME8_18=()
+	aSOFTWARE_NAME8_19=()
+	for i in "${!aSOFTWARE_NAME8_17[@]}"
+	do
+		aSOFTWARE_NAME8_18[i]=${aSOFTWARE_NAME8_17[i]}
+		aSOFTWARE_NAME8_19[i]=${aSOFTWARE_NAME8_18[i]}
+	done
+	unset -v 'aSOFTWARE_NAME8_19[141]' # Spotify Connect Web
+	unset -v 'aSOFTWARE_NAME8_19[177]' # Firefox Sync Server
+	aSOFTWARE_NAME8_19[210]='MediaWiki'
+
+	aSOFTWARE_NAME8_20=()
+	for i in "${!aSOFTWARE_NAME8_19[@]}"
+	do
+		aSOFTWARE_NAME8_20[i]=${aSOFTWARE_NAME8_19[i]}
+	done
+	aSOFTWARE_NAME8_20[211]='Homebridge'
+
+	aSOFTWARE_NAME8_21=()
+	aSOFTWARE_NAME8_22=()
+	for i in "${!aSOFTWARE_NAME8_20[@]}"
+	do
+		aSOFTWARE_NAME8_21[i]=${aSOFTWARE_NAME8_20[i]}
+		aSOFTWARE_NAME8_22[i]=${aSOFTWARE_NAME8_21[i]}
+	done
+	aSOFTWARE_NAME8_22[141]='ADS-B Feeder'
+	aSOFTWARE_NAME8_22[212]='Kavita'
+
+	aSOFTWARE_NAME8_23=()
+	aSOFTWARE_NAME8_24=()
+	aSOFTWARE_NAME8_25=()
+	aSOFTWARE_NAME9_0=()
+	aSOFTWARE_NAME9_1=()
+	for i in "${!aSOFTWARE_NAME8_22[@]}"
+	do
+		aSOFTWARE_NAME8_23[i]=${aSOFTWARE_NAME8_22[i]}
+		aSOFTWARE_NAME8_24[i]=${aSOFTWARE_NAME8_23[i]}
+		aSOFTWARE_NAME8_25[i]=${aSOFTWARE_NAME8_24[i]}
+		aSOFTWARE_NAME9_0[i]=${aSOFTWARE_NAME8_25[i]}
+		aSOFTWARE_NAME9_1[i]=${aSOFTWARE_NAME9_0[i]}
 	done
 
 	# Pre-create software counter array so that we can see also software (available in newest version) with 0 installs
-	for i in "${aSOFTWARE_NAME8_1[@]}"
+	for i in "${aSOFTWARE_NAME9_1[@]}"
 	do
-		aSOFTWARE["$i"]=0
+		aSOFTWARE[$i]=0
 	done
 
 	# $1 = File name
@@ -608,7 +730,7 @@ shopt -s extglob
 				'#'*) :;; # Pre-v7.1
 				'((aSURVEY_VERSION[6]++))') :;; # Pre-v6.22
 				'((aSURVEY_SENTCOUNT['+([[:digit:]])']++))') :;; # Pre-v6.22
-				'((aDIETPI_VERSION['[78].[[:digit:]]']++))'|'((aDIETPI_VERSION['6.[123][[:digit:]]']++))') version=${line#*'['} version=${version%']'*};;
+				'((aDIETPI_VERSION['+([[:digit:]]).+([[:digit:]])']++))') version=${line#*'['} version=${version%']'*};;
 				'((aGIT_BRANCH['+([[:graph:]])']++))') branch=${line#*'['} branch=${branch%']'*};; # since v6.17
 				'((aDEVICE_NAME['+([[:print:]])']++))') device=${line#*'['} device=${device%']'*};;
 				'((aCPU_ARCH['+([[:graph:]])']++))') arch=${line#*'['} arch=${arch%']'*};;
@@ -692,7 +814,7 @@ shopt -s extglob
 		[[ $mmc ]] && ((aMMC["$mmc"]++))
 		for i in "${asoftware[@]}"
 		do
-			((aSOFTWARE["$i"]++))
+			((aSOFTWARE[$i]++))
 		done
 
 		# Process benchmark results if present and hardware ID valid
@@ -701,22 +823,24 @@ shopt -s extglob
 		[[ ${aHW_NAME[$BENCH_HW_MODEL]} ]] || { echo "Invalid hardware ID: $BENCH_HW_MODEL"; return 1; }
 
 		# CPU
-		if [[ $BENCH_CPU == *[1-9]* && $BENCH_CPU =~ ^[0-9]+\.[0-9]{2}$ && $BENCH_CPU_TEMP_START =~ ^[0-9]+$ && $BENCH_CPU_TEMP_END =~ ^[0-9]+$ ]]; then
-
+		if [[ $BENCH_CPU == *[1-9]* && $BENCH_CPU =~ ^[0-9]+\.[0-9]{2}$ ]]
+		then
 			# CPU time: Remove decimal point, equals times 100 since it's always in x.xx
-			# - Remove leading zeros to support machines with <1s CPU time: One case with 0.94s was just spotted.
 			BENCH_CPU=${BENCH_CPU/.}
+			# - Remove leading zeros to support machines with <1s CPU time: One case with 0.94s was just spotted.
 			while [[ $BENCH_CPU == 0* ]]; do BENCH_CPU=${BENCH_CPU#0}; done
 			aBENCH_CPU[$BENCH_HW_MODEL,${aBENCH_CPU_INDEX[$BENCH_HW_MODEL]:=0}]=$BENCH_CPU
 
 			# CPU temps: Patch for millidegree: https://github.com/MichaIng/DietPi/issues/2715
-			(( $BENCH_CPU_TEMP_START > 200 )) && (( BENCH_CPU_TEMP_START /= 1000 ))
-			(( $BENCH_CPU_TEMP_END > 200 )) && (( BENCH_CPU_TEMP_END /= 1000 ))
-
-			aBENCH_CPU_TEMP_START[$BENCH_HW_MODEL,${aBENCH_CPU_INDEX[$BENCH_HW_MODEL]}]=$BENCH_CPU_TEMP_START
-			aBENCH_CPU_TEMP_END[$BENCH_HW_MODEL,${aBENCH_CPU_INDEX[$BENCH_HW_MODEL]}]=$BENCH_CPU_TEMP_END
+			if [[ $BENCH_CPU_TEMP_START =~ ^[0-9]+$ && $BENCH_CPU_TEMP_END =~ ^[0-9]+$ ]]
+			then
+				(( $BENCH_CPU_TEMP_START > 200 )) && (( BENCH_CPU_TEMP_START /= 1000 ))
+				(( $BENCH_CPU_TEMP_END > 200 )) && (( BENCH_CPU_TEMP_END /= 1000 ))
+				aBENCH_CPU_TEMP_START[$BENCH_HW_MODEL,${aBENCH_CPU_TEMP_INDEX[$BENCH_HW_MODEL]:=0}]=$BENCH_CPU_TEMP_START
+				aBENCH_CPU_TEMP_END[$BENCH_HW_MODEL,${aBENCH_CPU_TEMP_INDEX[$BENCH_HW_MODEL]}]=$BENCH_CPU_TEMP_END
+				((aBENCH_CPU_TEMP_INDEX[$BENCH_HW_MODEL]++))
+			fi
 			((aBENCH_CPU_INDEX[$BENCH_HW_MODEL]++))
-
 		fi
 
 		# RootFS
@@ -813,25 +937,30 @@ shopt -s extglob
 		# Merge old and new hardware model names
 		for i in "${!aDEVICE_NAME[@]}"
 		do
-			[[ $i == 'RPi B (ECN0001) (armv6l)' ]] && ((aDEVICE_NAME['RPi B (armv6l)']+=aDEVICE_NAME["$i"])) && unset -v "aDEVICE_NAME[$i]"
-			[[ $i == 'RPi  (armv6l)' ]] && ((aDEVICE_NAME['RPi (Unknown) (armv6l)']+=aDEVICE_NAME["$i"])) && unset -v "aDEVICE_NAME[$i]"
-			[[ $i == 'RPi  (armv7l)' ]] && ((aDEVICE_NAME['RPi (Unknown) (armv7l)']+=aDEVICE_NAME["$i"])) && unset -v "aDEVICE_NAME[$i]"
-			[[ $i == 'Odroid XU3/XU4/HC1/HC2 (armv7l)' ]] && ((aDEVICE_NAME['Odroid XU3/XU4/MC1/HC1/HC2 (armv7l)']+=aDEVICE_NAME["$i"])) && unset -v "aDEVICE_NAME[$i]"
-			[[ $i == 'Odroid C4 (aarch64)' ]] && ((aDEVICE_NAME['Odroid C4/HC4 (aarch64)']+=aDEVICE_NAME["$i"])) && unset -v "aDEVICE_NAME[$i]" # v6.35
-			[[ $i == 'Asus Tinker Board (armv7l)' ]] && ((aDEVICE_NAME['ASUS Tinker Board (armv7l)']+=aDEVICE_NAME["$i"])) && unset -v "aDEVICE_NAME[$i]"
-			[[ $i == 'Pine A64 (aarch64)' ]] && ((aDEVICE_NAME['PINE A64 (aarch64)']+=aDEVICE_NAME["$i"])) && unset -v "aDEVICE_NAME[$i]"
-			[[ $i == 'Pine H64 (aarch64)' ]] && ((aDEVICE_NAME['PINE H64 (aarch64)']+=aDEVICE_NAME["$i"])) && unset -v "aDEVICE_NAME[$i]"
-			[[ $i == 'Rock64 (aarch64)' ]] && ((aDEVICE_NAME['ROCK64 (aarch64)']+=aDEVICE_NAME["$i"])) && unset -v "aDEVICE_NAME[$i]"
-			[[ $i == 'RockPro64 (aarch64)' ]] && ((aDEVICE_NAME['ROCKPro64 (aarch64)']+=aDEVICE_NAME["$i"])) && unset -v "aDEVICE_NAME[$i]"
-			[[ $i == 'Pinebook A64 (aarch64)' ]] && ((aDEVICE_NAME['Pinebook (aarch64)']+=aDEVICE_NAME["$i"])) && unset -v "aDEVICE_NAME[$i]"
-			[[ $i == 'Pinebook 1080p (aarch64)' ]] && ((aDEVICE_NAME['Pinebook (aarch64)']+=aDEVICE_NAME["$i"])) && unset -v "aDEVICE_NAME[$i]"
-			[[ $i == 'NanoPi Neo (armv7l)' ]] && ((aDEVICE_NAME['NanoPi NEO (armv7l)']+=aDEVICE_NAME["$i"])) && unset -v "aDEVICE_NAME[$i]"
-			[[ $i == 'NanoPi NEO 2 (aarch64)' ]] && ((aDEVICE_NAME['NanoPi NEO2 (aarch64)']+=aDEVICE_NAME["$i"])) && unset -v "aDEVICE_NAME[$i]"
-			[[ $i == 'NanoPi M3/T3/F3 (aarch64)' ]] && ((aDEVICE_NAME['NanoPi M3/T3/Fire3 (aarch64)']+=aDEVICE_NAME["$i"])) && unset -v "aDEVICE_NAME[$i]"
-			[[ $i == 'NanoPi M3/T3/F3 (armv7l)' ]] && ((aDEVICE_NAME['NanoPi M3/T3/Fire3 (armv7l)']+=aDEVICE_NAME["$i"])) && unset -v "aDEVICE_NAME[$i]"
-			[[ $i == 'BBB (armv7l)' ]] && ((aDEVICE_NAME['BeagleBone Black (armv7l)']+=aDEVICE_NAME["$i"])) && unset -v "aDEVICE_NAME[$i]" # v7.1
-			[[ $i == 'Unknown Device (armv7l)' ]] && ((aDEVICE_NAME['Generic Device (armv7l)']+=aDEVICE_NAME["$i"])) && unset -v "aDEVICE_NAME[$i]"
-			[[ $i == 'Unknown Device (aarch64)' ]] && ((aDEVICE_NAME['Generic Device (aarch64)']+=aDEVICE_NAME["$i"])) && unset -v "aDEVICE_NAME[$i]"
+			[[ $i == 'RPi B (ECN0001) (armv6l)' ]] && ((aDEVICE_NAME['RPi B (armv6l)']+=aDEVICE_NAME[$i])) && unset -v "aDEVICE_NAME[$i]"
+			[[ $i == 'RPi  (armv6l)' ]] && ((aDEVICE_NAME['RPi (Unknown) (armv6l)']+=aDEVICE_NAME[$i])) && unset -v "aDEVICE_NAME[$i]"
+			[[ $i == 'RPi  (armv7l)' ]] && ((aDEVICE_NAME['RPi (Unknown) (armv7l)']+=aDEVICE_NAME[$i])) && unset -v "aDEVICE_NAME[$i]"
+			[[ $i == 'Odroid XU3/XU4/HC1/HC2 (armv7l)' ]] && ((aDEVICE_NAME['Odroid XU3/XU4/MC1/HC1/HC2 (armv7l)']+=aDEVICE_NAME[$i])) && unset -v "aDEVICE_NAME[$i]"
+			[[ $i == 'Odroid C4 (aarch64)' ]] && ((aDEVICE_NAME['Odroid C4/HC4 (aarch64)']+=aDEVICE_NAME[$i])) && unset -v "aDEVICE_NAME[$i]" # v6.35
+			[[ $i == 'Asus Tinker Board (armv7l)' ]] && ((aDEVICE_NAME['ASUS Tinker Board (armv7l)']+=aDEVICE_NAME[$i])) && unset -v "aDEVICE_NAME[$i]"
+			[[ $i == 'Pine A64 (aarch64)' ]] && ((aDEVICE_NAME['PINE A64 (aarch64)']+=aDEVICE_NAME[$i])) && unset -v "aDEVICE_NAME[$i]"
+			[[ $i == 'Pine H64 (aarch64)' ]] && ((aDEVICE_NAME['PINE H64 (aarch64)']+=aDEVICE_NAME[$i])) && unset -v "aDEVICE_NAME[$i]"
+			[[ $i == 'Rock64 (aarch64)' ]] && ((aDEVICE_NAME['ROCK64 (aarch64)']+=aDEVICE_NAME[$i])) && unset -v "aDEVICE_NAME[$i]"
+			[[ $i == 'RockPro64 (aarch64)' ]] && ((aDEVICE_NAME['ROCKPro64 (aarch64)']+=aDEVICE_NAME[$i])) && unset -v "aDEVICE_NAME[$i]"
+			[[ $i == 'Pinebook A64 (aarch64)' ]] && ((aDEVICE_NAME['Pinebook (aarch64)']+=aDEVICE_NAME[$i])) && unset -v "aDEVICE_NAME[$i]"
+			[[ $i == 'Pinebook 1080p (aarch64)' ]] && ((aDEVICE_NAME['Pinebook (aarch64)']+=aDEVICE_NAME[$i])) && unset -v "aDEVICE_NAME[$i]"
+			[[ $i == 'NanoPi Neo (armv7l)' ]] && ((aDEVICE_NAME['NanoPi NEO (armv7l)']+=aDEVICE_NAME[$i])) && unset -v "aDEVICE_NAME[$i]"
+			[[ $i == 'NanoPi NEO 2 (aarch64)' ]] && ((aDEVICE_NAME['NanoPi NEO2 (aarch64)']+=aDEVICE_NAME[$i])) && unset -v "aDEVICE_NAME[$i]"
+			[[ $i == 'NanoPi M3/T3/F3 (aarch64)' ]] && ((aDEVICE_NAME['NanoPi M3/T3/Fire3 (aarch64)']+=aDEVICE_NAME[$i])) && unset -v "aDEVICE_NAME[$i]"
+			[[ $i == 'NanoPi M3/T3/F3 (armv7l)' ]] && ((aDEVICE_NAME['NanoPi M3/T3/Fire3 (armv7l)']+=aDEVICE_NAME[$i])) && unset -v "aDEVICE_NAME[$i]"
+			[[ $i == 'BBB (armv7l)' ]] && ((aDEVICE_NAME['BeagleBone Black (armv7l)']+=aDEVICE_NAME[$i])) && unset -v "aDEVICE_NAME[$i]" # v7.1
+			[[ $i == 'Unknown Device (armv7l)' ]] && ((aDEVICE_NAME['Generic Device (armv7l)']+=aDEVICE_NAME[$i])) && unset -v "aDEVICE_NAME[$i]"
+			[[ $i == 'Unknown Device (aarch64)' ]] && ((aDEVICE_NAME['Generic Device (aarch64)']+=aDEVICE_NAME[$i])) && unset -v "aDEVICE_NAME[$i]"
+			[[ $i == 'NanoPi M1/T1 (armv7l)' ]] && ((aDEVICE_NAME['NanoPi M1 (armv7l)']+=aDEVICE_NAME[$i])) && unset -v "aDEVICE_NAME[$i]" # v8.11
+			[[ $i == 'NanoPi R5S (aarch64)' ]] && ((aDEVICE_NAME['NanoPi R5S/R5C (aarch64)']+=aDEVICE_NAME[$i])) && unset -v "aDEVICE_NAME[$i]" # v8.13
+			[[ $i == 'NanoPi R6S (aarch64)' ]] && ((aDEVICE_NAME['NanoPi 6 series (aarch64)']+=aDEVICE_NAME[$i])) && unset -v "aDEVICE_NAME[$i]" # v8.17
+			[[ $i == 'ROCK Pi 4 (aarch64)' ]] && ((aDEVICE_NAME['ROCK 4 (aarch64)']+=aDEVICE_NAME[$i])) && unset -v "aDEVICE_NAME[$i]" # v8.17
+			[[ $i == 'NanoPi R6S/R6C (aarch64)' ]] && ((aDEVICE_NAME['NanoPi 6 series (aarch64)']+=aDEVICE_NAME[$i])) && unset -v "aDEVICE_NAME[$i]" # v8.19
 		done
 
 		# Process all results, for later use in HTML printout
@@ -840,139 +969,151 @@ shopt -s extglob
 		# CPU
 		for i in "${!aBENCH_CPU_INDEX[@]}"
 		do
-			aBENCH_RESULT_CPU_MIN[$i]=
-			aBENCH_RESULT_CPU_MAX[$i]=
-			aBENCH_RESULT_CPU_AVG[$i]=
-			aBENCH_RESULT_CPU_TEMP_START_MIN[$i]=
-			aBENCH_RESULT_CPU_TEMP_START_MAX[$i]=
-			aBENCH_RESULT_CPU_TEMP_START_AVG[$i]=
-			aBENCH_RESULT_CPU_TEMP_END_MIN[$i]=
-			aBENCH_RESULT_CPU_TEMP_END_MAX[$i]=
-			aBENCH_RESULT_CPU_TEMP_END_AVG[$i]=
+			aBENCH_RESULT_CPU_MIN[i]=${aBENCH_CPU[$i,0]}
+			aBENCH_RESULT_CPU_MAX[i]=${aBENCH_CPU[$i,0]}
+			aBENCH_RESULT_CPU_AVG[i]=0
 
-			for (( j=0; j<${aBENCH_CPU_INDEX[$i]}; j++ ))
+			# CPU time
+			for (( j=0; j<${aBENCH_CPU_INDEX[i]}; j++ ))
 			do
-				(( ${aBENCH_CPU[$i,$j]} < ${aBENCH_RESULT_CPU_MIN[$i]:=${aBENCH_CPU[$i,$j]}} )) && aBENCH_RESULT_CPU_MIN[$i]=${aBENCH_CPU[$i,$j]}
-				(( ${aBENCH_CPU[$i,$j]} > ${aBENCH_RESULT_CPU_MAX[$i]:=${aBENCH_CPU[$i,$j]}} )) && aBENCH_RESULT_CPU_MAX[$i]=${aBENCH_CPU[$i,$j]}
-				(( aBENCH_RESULT_CPU_AVG[$i] += ${aBENCH_CPU[$i,$j]} ))
-
-				(( ${aBENCH_CPU_TEMP_START[$i,$j]} < ${aBENCH_RESULT_CPU_TEMP_START_MIN[$i]:=${aBENCH_CPU_TEMP_START[$i,$j]}} )) && aBENCH_RESULT_CPU_TEMP_START_MIN[$i]=${aBENCH_CPU_TEMP_START[$i,$j]}
-				(( ${aBENCH_CPU_TEMP_START[$i,$j]} > ${aBENCH_RESULT_CPU_TEMP_START_MAX[$i]:=${aBENCH_CPU_TEMP_START[$i,$j]}} )) && aBENCH_RESULT_CPU_TEMP_START_MAX[$i]=${aBENCH_CPU_TEMP_START[$i,$j]}
-				(( aBENCH_RESULT_CPU_TEMP_START_AVG[$i] += ${aBENCH_CPU_TEMP_START[$i,$j]} ))
-
-				(( ${aBENCH_CPU_TEMP_END[$i,$j]} < ${aBENCH_RESULT_CPU_TEMP_END_MIN[$i]:=${aBENCH_CPU_TEMP_END[$i,$j]}} )) && aBENCH_RESULT_CPU_TEMP_END_MIN[$i]=${aBENCH_CPU_TEMP_END[$i,$j]}
-				(( ${aBENCH_CPU_TEMP_END[$i,$j]} > ${aBENCH_RESULT_CPU_TEMP_END_MAX[$i]:=${aBENCH_CPU_TEMP_END[$i,$j]}} )) && aBENCH_RESULT_CPU_TEMP_END_MAX[$i]=${aBENCH_CPU_TEMP_END[$i,$j]}
-				(( aBENCH_RESULT_CPU_TEMP_END_AVG[$i] += ${aBENCH_CPU_TEMP_END[$i,$j]} ))
-
-				# Last item in current array. Work out averages
-				(( $j == ${aBENCH_CPU_INDEX[$i]} - 1 )) || continue
-				# - Devide CPU times by 100 and scale to revert decimal point removal
-				aBENCH_RESULT_CPU_MIN[$i]=$(printf '%.2f' "${aBENCH_RESULT_CPU_MIN[$i]}e-2")
-				aBENCH_RESULT_CPU_MAX[$i]=$(printf '%.2f' "${aBENCH_RESULT_CPU_MAX[$i]}e-2")
-				aBENCH_RESULT_CPU_AVG[$i]=$(printf '%.2f' "$((${aBENCH_RESULT_CPU_AVG[$i]}*10/${aBENCH_CPU_INDEX[$i]}+1))e-3")
-				aBENCH_RESULT_CPU_TEMP_START_AVG[$i]=$(( ${aBENCH_RESULT_CPU_TEMP_START_AVG[$i]} / ${aBENCH_CPU_INDEX[$i]} ))
-				aBENCH_RESULT_CPU_TEMP_END_AVG[$i]=$(( ${aBENCH_RESULT_CPU_TEMP_END_AVG[$i]} / ${aBENCH_CPU_INDEX[$i]} ))
+				(( ${aBENCH_CPU[$i,$j]} < ${aBENCH_RESULT_CPU_MIN[i]} )) && aBENCH_RESULT_CPU_MIN[i]=${aBENCH_CPU[$i,$j]}
+				(( ${aBENCH_CPU[$i,$j]} > ${aBENCH_RESULT_CPU_MAX[i]} )) && aBENCH_RESULT_CPU_MAX[i]=${aBENCH_CPU[$i,$j]}
+				(( aBENCH_RESULT_CPU_AVG[i] += ${aBENCH_CPU[$i,$j]} ))
 			done
+
+			# Work out averages
+			# - Divide CPU times by 100 and scale to revert decimal point removal
+			aBENCH_RESULT_CPU_MIN[i]=$(printf '%.2f' "${aBENCH_RESULT_CPU_MIN[i]}e-2")
+			aBENCH_RESULT_CPU_MAX[i]=$(printf '%.2f' "${aBENCH_RESULT_CPU_MAX[i]}e-2")
+			aBENCH_RESULT_CPU_AVG[i]=$(printf '%.2f' "$((${aBENCH_RESULT_CPU_AVG[i]}*10/${aBENCH_CPU_INDEX[i]}+1))e-3")
+
+			# CPU temps if available
+			aBENCH_RESULT_CPU_TEMP_START_MIN[i]='N/A'
+			aBENCH_RESULT_CPU_TEMP_START_MAX[i]='N/A'
+			aBENCH_RESULT_CPU_TEMP_START_AVG[i]='N/A'
+			aBENCH_RESULT_CPU_TEMP_END_MIN[i]='N/A'
+			aBENCH_RESULT_CPU_TEMP_END_MAX[i]='N/A'
+			aBENCH_RESULT_CPU_TEMP_END_AVG[i]='N/A'
+
+			(( ${aBENCH_CPU_TEMP_INDEX[i]} )) || continue
+
+			aBENCH_RESULT_CPU_TEMP_START_MIN[i]=${aBENCH_CPU_TEMP_START[$i,0]}
+			aBENCH_RESULT_CPU_TEMP_START_MAX[i]=${aBENCH_CPU_TEMP_START[$i,0]}
+			aBENCH_RESULT_CPU_TEMP_START_AVG[i]=0
+			aBENCH_RESULT_CPU_TEMP_END_MIN[i]=${aBENCH_CPU_TEMP_END[$i,0]}
+			aBENCH_RESULT_CPU_TEMP_END_MAX[i]=${aBENCH_CPU_TEMP_END[$i,0]}
+			aBENCH_RESULT_CPU_TEMP_END_AVG[i]=0
+
+			for (( j=0; j<${aBENCH_CPU_TEMP_INDEX[i]}; j++ ))
+			do
+				(( ${aBENCH_CPU_TEMP_START[$i,$j]} < ${aBENCH_RESULT_CPU_TEMP_START_MIN[i]} )) && aBENCH_RESULT_CPU_TEMP_START_MIN[i]=${aBENCH_CPU_TEMP_START[$i,$j]}
+				(( ${aBENCH_CPU_TEMP_START[$i,$j]} > ${aBENCH_RESULT_CPU_TEMP_START_MAX[i]} )) && aBENCH_RESULT_CPU_TEMP_START_MAX[i]=${aBENCH_CPU_TEMP_START[$i,$j]}
+				(( aBENCH_RESULT_CPU_TEMP_START_AVG[i] += ${aBENCH_CPU_TEMP_START[$i,$j]} ))
+
+				(( ${aBENCH_CPU_TEMP_END[$i,$j]} < ${aBENCH_RESULT_CPU_TEMP_END_MIN[i]} )) && aBENCH_RESULT_CPU_TEMP_END_MIN[i]=${aBENCH_CPU_TEMP_END[$i,$j]}
+				(( ${aBENCH_CPU_TEMP_END[$i,$j]} > ${aBENCH_RESULT_CPU_TEMP_END_MAX[i]} )) && aBENCH_RESULT_CPU_TEMP_END_MAX[i]=${aBENCH_CPU_TEMP_END[$i,$j]}
+				(( aBENCH_RESULT_CPU_TEMP_END_AVG[i] += ${aBENCH_CPU_TEMP_END[$i,$j]} ))
+			done
+
+			# Work out averages
+			aBENCH_RESULT_CPU_TEMP_START_AVG[i]=$(( ${aBENCH_RESULT_CPU_TEMP_START_AVG[i]} / ${aBENCH_CPU_TEMP_INDEX[i]} ))
+			aBENCH_RESULT_CPU_TEMP_END_AVG[i]=$(( ${aBENCH_RESULT_CPU_TEMP_END_AVG[i]} / ${aBENCH_CPU_TEMP_INDEX[i]} ))
 		done
 
 		# RootFS
 		for i in "${!aBENCH_ROOTFS_INDEX[@]}"
 		do
-			aBENCH_RESULT_ROOTFS_WRITE_MIN[$i]=
-			aBENCH_RESULT_ROOTFS_WRITE_MAX[$i]=
-			aBENCH_RESULT_ROOTFS_WRITE_AVG[$i]=
-			aBENCH_RESULT_ROOTFS_READ_MIN[$i]=
-			aBENCH_RESULT_ROOTFS_READ_MAX[$i]=
-			aBENCH_RESULT_ROOTFS_READ_AVG[$i]=
+			aBENCH_RESULT_ROOTFS_WRITE_MIN[i]=${aBENCH_ROOTFS_WRITE[$i,0]}
+			aBENCH_RESULT_ROOTFS_WRITE_MAX[i]=${aBENCH_ROOTFS_WRITE[$i,0]}
+			aBENCH_RESULT_ROOTFS_WRITE_AVG[i]=0
+			aBENCH_RESULT_ROOTFS_READ_MIN[i]=${aBENCH_ROOTFS_READ[$i,0]}
+			aBENCH_RESULT_ROOTFS_READ_MAX[i]=${aBENCH_ROOTFS_READ[$i,0]}
+			aBENCH_RESULT_ROOTFS_READ_AVG[i]=0
 
-			for (( j=0; j<${aBENCH_ROOTFS_INDEX[$i]}; j++ ))
+			for (( j=0; j<${aBENCH_ROOTFS_INDEX[i]}; j++ ))
 			do
-				(( ${aBENCH_ROOTFS_WRITE[$i,$j]} < ${aBENCH_RESULT_ROOTFS_WRITE_MIN[$i]:=${aBENCH_ROOTFS_WRITE[$i,$j]}} )) && aBENCH_RESULT_ROOTFS_WRITE_MIN[$i]=${aBENCH_ROOTFS_WRITE[$i,$j]}
-				(( ${aBENCH_ROOTFS_WRITE[$i,$j]} > ${aBENCH_RESULT_ROOTFS_WRITE_MAX[$i]:=${aBENCH_ROOTFS_WRITE[$i,$j]}} )) && aBENCH_RESULT_ROOTFS_WRITE_MAX[$i]=${aBENCH_ROOTFS_WRITE[$i,$j]}
-				(( aBENCH_RESULT_ROOTFS_WRITE_AVG[$i] += ${aBENCH_ROOTFS_WRITE[$i,$j]} ))
+				(( ${aBENCH_ROOTFS_WRITE[$i,$j]} < ${aBENCH_RESULT_ROOTFS_WRITE_MIN[i]} )) && aBENCH_RESULT_ROOTFS_WRITE_MIN[i]=${aBENCH_ROOTFS_WRITE[$i,$j]}
+				(( ${aBENCH_ROOTFS_WRITE[$i,$j]} > ${aBENCH_RESULT_ROOTFS_WRITE_MAX[i]} )) && aBENCH_RESULT_ROOTFS_WRITE_MAX[i]=${aBENCH_ROOTFS_WRITE[$i,$j]}
+				(( aBENCH_RESULT_ROOTFS_WRITE_AVG[i] += ${aBENCH_ROOTFS_WRITE[$i,$j]} ))
 
-				(( ${aBENCH_ROOTFS_READ[$i,$j]} < ${aBENCH_RESULT_ROOTFS_READ_MIN[$i]:=${aBENCH_ROOTFS_READ[$i,$j]}} )) && aBENCH_RESULT_ROOTFS_READ_MIN[$i]=${aBENCH_ROOTFS_READ[$i,$j]}
-				(( ${aBENCH_ROOTFS_READ[$i,$j]} > ${aBENCH_RESULT_ROOTFS_READ_MAX[$i]:=${aBENCH_ROOTFS_READ[$i,$j]}} )) && aBENCH_RESULT_ROOTFS_READ_MAX[$i]=${aBENCH_ROOTFS_READ[$i,$j]}
-				(( aBENCH_RESULT_ROOTFS_READ_AVG[$i] += ${aBENCH_ROOTFS_READ[$i,$j]} ))
-
-				# Last item in current array. Work out averages
-				(( $j == ${aBENCH_ROOTFS_INDEX[$i]} - 1 )) || continue
-				aBENCH_RESULT_ROOTFS_WRITE_AVG[$i]=$(( ${aBENCH_RESULT_ROOTFS_WRITE_AVG[$i]} / ${aBENCH_ROOTFS_INDEX[$i]} ))
-				aBENCH_RESULT_ROOTFS_READ_AVG[$i]=$(( ${aBENCH_RESULT_ROOTFS_READ_AVG[$i]} / ${aBENCH_ROOTFS_INDEX[$i]} ))
+				(( ${aBENCH_ROOTFS_READ[$i,$j]} < ${aBENCH_RESULT_ROOTFS_READ_MIN[i]} )) && aBENCH_RESULT_ROOTFS_READ_MIN[i]=${aBENCH_ROOTFS_READ[$i,$j]}
+				(( ${aBENCH_ROOTFS_READ[$i,$j]} > ${aBENCH_RESULT_ROOTFS_READ_MAX[i]} )) && aBENCH_RESULT_ROOTFS_READ_MAX[i]=${aBENCH_ROOTFS_READ[$i,$j]}
+				(( aBENCH_RESULT_ROOTFS_READ_AVG[i] += ${aBENCH_ROOTFS_READ[$i,$j]} ))
 			done
+
+			# Work out averages
+			aBENCH_RESULT_ROOTFS_WRITE_AVG[i]=$(( ${aBENCH_RESULT_ROOTFS_WRITE_AVG[i]} / ${aBENCH_ROOTFS_INDEX[i]} ))
+			aBENCH_RESULT_ROOTFS_READ_AVG[i]=$(( ${aBENCH_RESULT_ROOTFS_READ_AVG[i]} / ${aBENCH_ROOTFS_INDEX[i]} ))
 		done
 
 		# RAM
 		for i in "${!aBENCH_RAM_INDEX[@]}"
 		do
-			aBENCH_RESULT_RAM_WRITE_MIN[$i]=
-			aBENCH_RESULT_RAM_WRITE_MAX[$i]=
-			aBENCH_RESULT_RAM_WRITE_AVG[$i]=
-			aBENCH_RESULT_RAM_READ_MIN[$i]=
-			aBENCH_RESULT_RAM_READ_MAX[$i]=
-			aBENCH_RESULT_RAM_READ_AVG[$i]=
+			aBENCH_RESULT_RAM_WRITE_MIN[i]=${aBENCH_RAM_WRITE[$i,0]}
+			aBENCH_RESULT_RAM_WRITE_MAX[i]=${aBENCH_RAM_WRITE[$i,0]}
+			aBENCH_RESULT_RAM_WRITE_AVG[i]=0
+			aBENCH_RESULT_RAM_READ_MIN[i]=${aBENCH_RAM_READ[$i,0]}
+			aBENCH_RESULT_RAM_READ_MAX[i]=${aBENCH_RAM_READ[$i,0]}
+			aBENCH_RESULT_RAM_READ_AVG[i]=0
 
-			for (( j=0; j<${aBENCH_RAM_INDEX[$i]}; j++ ))
+			for (( j=0; j<${aBENCH_RAM_INDEX[i]}; j++ ))
 			do
-				(( ${aBENCH_RAM_WRITE[$i,$j]} < ${aBENCH_RESULT_RAM_WRITE_MIN[$i]:=${aBENCH_RAM_WRITE[$i,$j]}} )) && aBENCH_RESULT_RAM_WRITE_MIN[$i]=${aBENCH_RAM_WRITE[$i,$j]}
-				(( ${aBENCH_RAM_WRITE[$i,$j]} > ${aBENCH_RESULT_RAM_WRITE_MAX[$i]:=${aBENCH_RAM_WRITE[$i,$j]}} )) && aBENCH_RESULT_RAM_WRITE_MAX[$i]=${aBENCH_RAM_WRITE[$i,$j]}
-				(( aBENCH_RESULT_RAM_WRITE_AVG[$i] += ${aBENCH_RAM_WRITE[$i,$j]} ))
+				(( ${aBENCH_RAM_WRITE[$i,$j]} < ${aBENCH_RESULT_RAM_WRITE_MIN[i]} )) && aBENCH_RESULT_RAM_WRITE_MIN[i]=${aBENCH_RAM_WRITE[$i,$j]}
+				(( ${aBENCH_RAM_WRITE[$i,$j]} > ${aBENCH_RESULT_RAM_WRITE_MAX[i]} )) && aBENCH_RESULT_RAM_WRITE_MAX[i]=${aBENCH_RAM_WRITE[$i,$j]}
+				(( aBENCH_RESULT_RAM_WRITE_AVG[i] += ${aBENCH_RAM_WRITE[$i,$j]} ))
 
-				(( ${aBENCH_RAM_READ[$i,$j]} < ${aBENCH_RESULT_RAM_READ_MIN[$i]:=${aBENCH_RAM_READ[$i,$j]}} )) && aBENCH_RESULT_RAM_READ_MIN[$i]=${aBENCH_RAM_READ[$i,$j]}
-				(( ${aBENCH_RAM_READ[$i,$j]} > ${aBENCH_RESULT_RAM_READ_MAX[$i]:=${aBENCH_RAM_READ[$i,$j]}} )) && aBENCH_RESULT_RAM_READ_MAX[$i]=${aBENCH_RAM_READ[$i,$j]}
-				(( aBENCH_RESULT_RAM_READ_AVG[$i] += ${aBENCH_RAM_READ[$i,$j]} ))
-
-				# Last item in current array. Work out averages
-				(( $j == ${aBENCH_RAM_INDEX[$i]} - 1 )) || continue
-				aBENCH_RESULT_RAM_WRITE_AVG[$i]=$(( ${aBENCH_RESULT_RAM_WRITE_AVG[$i]} / ${aBENCH_RAM_INDEX[$i]} ))
-				aBENCH_RESULT_RAM_READ_AVG[$i]=$(( ${aBENCH_RESULT_RAM_READ_AVG[$i]} / ${aBENCH_RAM_INDEX[$i]} ))
+				(( ${aBENCH_RAM_READ[$i,$j]} < ${aBENCH_RESULT_RAM_READ_MIN[i]} )) && aBENCH_RESULT_RAM_READ_MIN[i]=${aBENCH_RAM_READ[$i,$j]}
+				(( ${aBENCH_RAM_READ[$i,$j]} > ${aBENCH_RESULT_RAM_READ_MAX[i]} )) && aBENCH_RESULT_RAM_READ_MAX[i]=${aBENCH_RAM_READ[$i,$j]}
+				(( aBENCH_RESULT_RAM_READ_AVG[i] += ${aBENCH_RAM_READ[$i,$j]} ))
 			done
+
+			# Work out averages
+			aBENCH_RESULT_RAM_WRITE_AVG[i]=$(( ${aBENCH_RESULT_RAM_WRITE_AVG[i]} / ${aBENCH_RAM_INDEX[i]} ))
+			aBENCH_RESULT_RAM_READ_AVG[i]=$(( ${aBENCH_RESULT_RAM_READ_AVG[i]} / ${aBENCH_RAM_INDEX[i]} ))
 		done
 
 		# LAN
 		for i in "${!aBENCH_LAN_INDEX[@]}"
 		do
-			aBENCH_RESULT_NET_LAN_SPEED_MIN[$i]=
-			aBENCH_RESULT_NET_LAN_SPEED_MAX[$i]=
-			aBENCH_RESULT_NET_LAN_SPEED_AVG[$i]=
+			aBENCH_RESULT_NET_LAN_SPEED_MIN[i]=${aBENCH_NET_LAN_SPEED[$i,0]}
+			aBENCH_RESULT_NET_LAN_SPEED_MAX[i]=${aBENCH_NET_LAN_SPEED[$i,0]}
+			aBENCH_RESULT_NET_LAN_SPEED_AVG[i]=0
 
-			for (( j=0; j<${aBENCH_LAN_INDEX[$i]}; j++ ))
+			for (( j=0; j<${aBENCH_LAN_INDEX[i]}; j++ ))
 			do
-				(( ${aBENCH_NET_LAN_SPEED[$i,$j]} < ${aBENCH_RESULT_NET_LAN_SPEED_MIN[$i]:=${aBENCH_NET_LAN_SPEED[$i,$j]}} )) && aBENCH_RESULT_NET_LAN_SPEED_MIN[$i]=${aBENCH_NET_LAN_SPEED[$i,$j]}
-				(( ${aBENCH_NET_LAN_SPEED[$i,$j]} > ${aBENCH_RESULT_NET_LAN_SPEED_MAX[$i]:=${aBENCH_NET_LAN_SPEED[$i,$j]}} )) && aBENCH_RESULT_NET_LAN_SPEED_MAX[$i]=${aBENCH_NET_LAN_SPEED[$i,$j]}
-				(( aBENCH_RESULT_NET_LAN_SPEED_AVG[$i] += ${aBENCH_NET_LAN_SPEED[$i,$j]} ))
-
-				# Last item in current array. Work out averages
-				(( $j == ${aBENCH_LAN_INDEX[$i]} - 1 )) || continue
-				aBENCH_RESULT_NET_LAN_SPEED_AVG[$i]=$(( ${aBENCH_RESULT_NET_LAN_SPEED_AVG[$i]} / ${aBENCH_LAN_INDEX[$i]} ))
+				(( ${aBENCH_NET_LAN_SPEED[$i,$j]} < ${aBENCH_RESULT_NET_LAN_SPEED_MIN[i]} )) && aBENCH_RESULT_NET_LAN_SPEED_MIN[i]=${aBENCH_NET_LAN_SPEED[$i,$j]}
+				(( ${aBENCH_NET_LAN_SPEED[$i,$j]} > ${aBENCH_RESULT_NET_LAN_SPEED_MAX[i]} )) && aBENCH_RESULT_NET_LAN_SPEED_MAX[i]=${aBENCH_NET_LAN_SPEED[$i,$j]}
+				(( aBENCH_RESULT_NET_LAN_SPEED_AVG[i] += ${aBENCH_NET_LAN_SPEED[$i,$j]} ))
 			done
+
+			# Work out averages
+			aBENCH_RESULT_NET_LAN_SPEED_AVG[i]=$(( ${aBENCH_RESULT_NET_LAN_SPEED_AVG[i]} / ${aBENCH_LAN_INDEX[i]} ))
 		done
 
-		# CustomFS
+		# Custom FS
 		for i in "${!aBENCH_CUSTOMFS_INDEX[@]}"
 		do
-			aBENCH_RESULT_CUSTOMFS_WRITE_MIN[$i]=
-			aBENCH_RESULT_CUSTOMFS_WRITE_MAX[$i]=
-			aBENCH_RESULT_CUSTOMFS_WRITE_AVG[$i]=
-			aBENCH_RESULT_CUSTOMFS_READ_MIN[$i]=
-			aBENCH_RESULT_CUSTOMFS_READ_MAX[$i]=
-			aBENCH_RESULT_CUSTOMFS_READ_AVG[$i]=
+			aBENCH_RESULT_CUSTOMFS_WRITE_MIN[i]=${aBENCH_CUSTOMFS_WRITE[$i,0]}
+			aBENCH_RESULT_CUSTOMFS_WRITE_MAX[i]=${aBENCH_CUSTOMFS_WRITE[$i,0]}
+			aBENCH_RESULT_CUSTOMFS_WRITE_AVG[i]=0
+			aBENCH_RESULT_CUSTOMFS_READ_MIN[i]=${aBENCH_CUSTOMFS_READ[$i,0]}
+			aBENCH_RESULT_CUSTOMFS_READ_MAX[i]=${aBENCH_CUSTOMFS_READ[$i,0]}
+			aBENCH_RESULT_CUSTOMFS_READ_AVG[i]=0
 
-			for (( j=0; j<${aBENCH_CUSTOMFS_INDEX[$i]}; j++ ))
+			for (( j=0; j<${aBENCH_CUSTOMFS_INDEX[i]}; j++ ))
 			do
-				(( ${aBENCH_CUSTOMFS_WRITE[$i,$j]} < ${aBENCH_RESULT_CUSTOMFS_WRITE_MIN[$i]:=${aBENCH_CUSTOMFS_WRITE[$i,$j]}} )) && aBENCH_RESULT_CUSTOMFS_WRITE_MIN[$i]=${aBENCH_CUSTOMFS_WRITE[$i,$j]}
-				(( ${aBENCH_CUSTOMFS_WRITE[$i,$j]} > ${aBENCH_RESULT_CUSTOMFS_WRITE_MAX[$i]:=${aBENCH_CUSTOMFS_WRITE[$i,$j]}} )) && aBENCH_RESULT_CUSTOMFS_WRITE_MAX[$i]=${aBENCH_CUSTOMFS_WRITE[$i,$j]}
-				(( aBENCH_RESULT_CUSTOMFS_WRITE_AVG[$i] += ${aBENCH_CUSTOMFS_WRITE[$i,$j]} ))
+				(( ${aBENCH_CUSTOMFS_WRITE[$i,$j]} < ${aBENCH_RESULT_CUSTOMFS_WRITE_MIN[i]} )) && aBENCH_RESULT_CUSTOMFS_WRITE_MIN[i]=${aBENCH_CUSTOMFS_WRITE[$i,$j]}
+				(( ${aBENCH_CUSTOMFS_WRITE[$i,$j]} > ${aBENCH_RESULT_CUSTOMFS_WRITE_MAX[i]} )) && aBENCH_RESULT_CUSTOMFS_WRITE_MAX[i]=${aBENCH_CUSTOMFS_WRITE[$i,$j]}
+				(( aBENCH_RESULT_CUSTOMFS_WRITE_AVG[i] += ${aBENCH_CUSTOMFS_WRITE[$i,$j]} ))
 
-				(( ${aBENCH_CUSTOMFS_READ[$i,$j]} < ${aBENCH_RESULT_CUSTOMFS_READ_MIN[$i]:=${aBENCH_CUSTOMFS_READ[$i,$j]}} )) && aBENCH_RESULT_CUSTOMFS_READ_MIN[$i]=${aBENCH_CUSTOMFS_READ[$i,$j]}
-				(( ${aBENCH_CUSTOMFS_READ[$i,$j]} > ${aBENCH_RESULT_CUSTOMFS_READ_MAX[$i]:=${aBENCH_CUSTOMFS_READ[$i,$j]}} )) && aBENCH_RESULT_CUSTOMFS_READ_MAX[$i]=${aBENCH_CUSTOMFS_READ[$i,$j]}
-				(( aBENCH_RESULT_CUSTOMFS_READ_AVG[$i] += ${aBENCH_CUSTOMFS_READ[$i,$j]} ))
-
-				# Last item in current array. Work out averages
-				(( $j == ${aBENCH_CUSTOMFS_INDEX[$i]} - 1 )) || continue
-				aBENCH_RESULT_CUSTOMFS_WRITE_AVG[$i]=$(( ${aBENCH_RESULT_CUSTOMFS_WRITE_AVG[$i]} / ${aBENCH_CUSTOMFS_INDEX[$i]} ))
-				aBENCH_RESULT_CUSTOMFS_READ_AVG[$i]=$(( ${aBENCH_RESULT_CUSTOMFS_READ_AVG[$i]} / ${aBENCH_CUSTOMFS_INDEX[$i]} ))
+				(( ${aBENCH_CUSTOMFS_READ[$i,$j]} < ${aBENCH_RESULT_CUSTOMFS_READ_MIN[i]} )) && aBENCH_RESULT_CUSTOMFS_READ_MIN[i]=${aBENCH_CUSTOMFS_READ[$i,$j]}
+				(( ${aBENCH_CUSTOMFS_READ[$i,$j]} > ${aBENCH_RESULT_CUSTOMFS_READ_MAX[i]} )) && aBENCH_RESULT_CUSTOMFS_READ_MAX[i]=${aBENCH_CUSTOMFS_READ[$i,$j]}
+				(( aBENCH_RESULT_CUSTOMFS_READ_AVG[i] += ${aBENCH_CUSTOMFS_READ[$i,$j]} ))
 			done
+
+			# Work out averages
+			aBENCH_RESULT_CUSTOMFS_WRITE_AVG[i]=$(( ${aBENCH_RESULT_CUSTOMFS_WRITE_AVG[i]} / ${aBENCH_CUSTOMFS_INDEX[i]} ))
+			aBENCH_RESULT_CUSTOMFS_READ_AVG[i]=$(( ${aBENCH_RESULT_CUSTOMFS_READ_AVG[i]} / ${aBENCH_CUSTOMFS_INDEX[i]} ))
 		done
 
 		# Create HTML file
@@ -1087,7 +1228,7 @@ shopt -s extglob
 
 		<h2 id="version"><a href="#version">DietPi versions &para</a></h2>
 		<table>
-			$(for i in "${!aDIETPI_VERSION[@]}"; do echo "<tr><td>DietPi v$i</td><td align=\"right\">${aDIETPI_VERSION[$i]}</td><td align=\"right\">$(( ${aDIETPI_VERSION[$i]} * 100 / $SURVEY_COUNT_OPTIN ))%</td></tr>"; done | sort -nr)
+			$(for i in "${!aDIETPI_VERSION[@]}"; do echo "<tr><td>DietPi v$i</td><td align=\"right\">${aDIETPI_VERSION[$i]}</td><td align=\"right\">$(( ${aDIETPI_VERSION[$i]} * 100 / $SURVEY_COUNT_OPTIN ))%</td></tr>"; done | sort -Vr)
 		</table>
 
 		<h2 id="git"><a href="#git">Git branches &para</a></h2>
@@ -1107,7 +1248,7 @@ shopt -s extglob
 
 		<h2 id="cores"><a href="#cores">CPU core counts &para</a></h2>
 		<table>
-			$(for i in "${!aCPU_COUNT[@]}"; do echo "<tr><td>$i Core(s)</td><td align=\"right\">	${aCPU_COUNT[$i]}</td><td align=\"right\">$(( ${aCPU_COUNT[$i]} * 100 / $SURVEY_COUNT_OPTIN ))%</td></tr>"; done | sort -nrk 2 -t '	')
+			$(for i in "${!aCPU_COUNT[@]}"; do echo "<tr><td>$i Core(s)</td><td align=\"right\">	${aCPU_COUNT[i]}</td><td align=\"right\">$(( ${aCPU_COUNT[i]} * 100 / $SURVEY_COUNT_OPTIN ))%</td></tr>"; done | sort -nrk 2 -t '	')
 		</table>
 
 		<h2 id="distro"><a href="#distro">Distro versions &para</a></h2>
@@ -1166,7 +1307,7 @@ shopt -s extglob
 				<td bgcolor="#2B5D00">Lowest</td>
 				<td bgcolor="#5D0000">Highest</td>
 			</tr>
-			$(for i in "${!aBENCH_CPU_INDEX[@]}"; do echo "<tr><td>${aHW_NAME[$i]}</td><td>${aBENCH_CPU_INDEX[$i]}</td><td bgcolor=\"#34005D\">	${aBENCH_RESULT_CPU_AVG[$i]}</td><td bgcolor=\"#2B5D00\">${aBENCH_RESULT_CPU_MIN[$i]}</td><td bgcolor=\"#5D0000\">${aBENCH_RESULT_CPU_MAX[$i]}</td><td bgcolor=\"#34005D\">${aBENCH_RESULT_CPU_TEMP_START_AVG[$i]}</td><td bgcolor=\"#2B5D00\">${aBENCH_RESULT_CPU_TEMP_START_MIN[$i]}</td><td bgcolor=\"#5D0000\">${aBENCH_RESULT_CPU_TEMP_START_MAX[$i]}</td><td bgcolor=\"#34005D\">${aBENCH_RESULT_CPU_TEMP_END_AVG[$i]}</td><td bgcolor=\"#2B5D00\">${aBENCH_RESULT_CPU_TEMP_END_MIN[$i]}</td><td bgcolor=\"#5D0000\">${aBENCH_RESULT_CPU_TEMP_END_MAX[$i]}</td></tr>"; done | sort -nk 2 -t '	')
+			$(for i in "${!aBENCH_CPU_INDEX[@]}"; do echo "<tr><td>${aHW_NAME[i]}</td><td>${aBENCH_CPU_INDEX[i]}</td><td bgcolor=\"#34005D\">	${aBENCH_RESULT_CPU_AVG[i]}</td><td bgcolor=\"#2B5D00\">${aBENCH_RESULT_CPU_MIN[i]}</td><td bgcolor=\"#5D0000\">${aBENCH_RESULT_CPU_MAX[i]}</td><td bgcolor=\"#34005D\">${aBENCH_RESULT_CPU_TEMP_START_AVG[i]}</td><td bgcolor=\"#2B5D00\">${aBENCH_RESULT_CPU_TEMP_START_MIN[i]}</td><td bgcolor=\"#5D0000\">${aBENCH_RESULT_CPU_TEMP_START_MAX[i]}</td><td bgcolor=\"#34005D\">${aBENCH_RESULT_CPU_TEMP_END_AVG[i]}</td><td bgcolor=\"#2B5D00\">${aBENCH_RESULT_CPU_TEMP_END_MIN[i]}</td><td bgcolor=\"#5D0000\">${aBENCH_RESULT_CPU_TEMP_END_MAX[i]}</td></tr>"; done | sort -nk 2 -t '	')
 		</table>
 
 		<h2 id="bench_ram"><a href="#bench_ram">DietPi-Benchmarks | RAM I/O &para</a></h2>
@@ -1186,7 +1327,7 @@ shopt -s extglob
 				<td bgcolor="#2B5D00">Fastest</td>
 				<td bgcolor="#5D0000">Slowest</td>
 			</tr>
-			$(for i in "${!aBENCH_RAM_INDEX[@]}"; do echo "<tr><td>${aHW_NAME[$i]}</td><td>${aBENCH_RAM_INDEX[$i]}</td><td bgcolor=\"#34005D\">	${aBENCH_RESULT_RAM_WRITE_AVG[$i]}</td><td bgcolor=\"#2B5D00\">${aBENCH_RESULT_RAM_WRITE_MAX[$i]}</td><td bgcolor=\"#5D0000\">${aBENCH_RESULT_RAM_WRITE_MIN[$i]}</td><td bgcolor=\"#34005D\">${aBENCH_RESULT_RAM_READ_AVG[$i]}</td><td bgcolor=\"#2B5D00\">${aBENCH_RESULT_RAM_READ_MAX[$i]}</td><td bgcolor=\"#5D0000\">${aBENCH_RESULT_RAM_READ_MIN[$i]}</td></tr>"; done | sort -nrk 2 -t '	')
+			$(for i in "${!aBENCH_RAM_INDEX[@]}"; do echo "<tr><td>${aHW_NAME[i]}</td><td>${aBENCH_RAM_INDEX[i]}</td><td bgcolor=\"#34005D\">	${aBENCH_RESULT_RAM_WRITE_AVG[i]}</td><td bgcolor=\"#2B5D00\">${aBENCH_RESULT_RAM_WRITE_MAX[i]}</td><td bgcolor=\"#5D0000\">${aBENCH_RESULT_RAM_WRITE_MIN[i]}</td><td bgcolor=\"#34005D\">${aBENCH_RESULT_RAM_READ_AVG[i]}</td><td bgcolor=\"#2B5D00\">${aBENCH_RESULT_RAM_READ_MAX[i]}</td><td bgcolor=\"#5D0000\">${aBENCH_RESULT_RAM_READ_MIN[i]}</td></tr>"; done | sort -nrk 2 -t '	')
 		</table>
 
 		<h2 id="bench_disk"><a href="#bench_disk">DietPi-Benchmarks | RootFS I/O &para</a></h2>
@@ -1206,7 +1347,7 @@ shopt -s extglob
 				<td bgcolor="#2B5D00">Fastest</td>
 				<td bgcolor="#5D0000">Slowest</td>
 			</tr>
-			$(for i in "${!aBENCH_ROOTFS_INDEX[@]}"; do echo "<tr><td>${aHW_NAME[$i]}</td><td>${aBENCH_ROOTFS_INDEX[$i]}</td><td bgcolor=\"#34005D\">	${aBENCH_RESULT_ROOTFS_WRITE_AVG[$i]}</td><td bgcolor=\"#2B5D00\">${aBENCH_RESULT_ROOTFS_WRITE_MAX[$i]}</td><td bgcolor=\"#5D0000\">${aBENCH_RESULT_ROOTFS_WRITE_MIN[$i]}</td><td bgcolor=\"#34005D\">${aBENCH_RESULT_ROOTFS_READ_AVG[$i]}</td><td bgcolor=\"#2B5D00\">${aBENCH_RESULT_ROOTFS_READ_MAX[$i]}</td><td bgcolor=\"#5D0000\">${aBENCH_RESULT_ROOTFS_READ_MIN[$i]}</td></tr>"; done | sort -nrk 2 -t '	')
+			$(for i in "${!aBENCH_ROOTFS_INDEX[@]}"; do echo "<tr><td>${aHW_NAME[i]}</td><td>${aBENCH_ROOTFS_INDEX[i]}</td><td bgcolor=\"#34005D\">	${aBENCH_RESULT_ROOTFS_WRITE_AVG[i]}</td><td bgcolor=\"#2B5D00\">${aBENCH_RESULT_ROOTFS_WRITE_MAX[i]}</td><td bgcolor=\"#5D0000\">${aBENCH_RESULT_ROOTFS_WRITE_MIN[i]}</td><td bgcolor=\"#34005D\">${aBENCH_RESULT_ROOTFS_READ_AVG[i]}</td><td bgcolor=\"#2B5D00\">${aBENCH_RESULT_ROOTFS_READ_MAX[i]}</td><td bgcolor=\"#5D0000\">${aBENCH_RESULT_ROOTFS_READ_MIN[i]}</td></tr>"; done | sort -nrk 2 -t '	')
 		</table>
 
 		<h2 id="bench_custom"><a href="#bench_custom">DietPi-Benchmarks | Custom FS I/O &para</a></h2>
@@ -1226,7 +1367,7 @@ shopt -s extglob
 				<td bgcolor="#2B5D00">Fastest</td>
 				<td bgcolor="#5D0000">Slowest</td>
 			</tr>
-			$(for i in "${!aBENCH_CUSTOMFS_INDEX[@]}"; do echo "<tr><td>${aHW_NAME[$i]}</td><td>${aBENCH_CUSTOMFS_INDEX[$i]}</td><td bgcolor=\"#34005D\">	${aBENCH_RESULT_CUSTOMFS_WRITE_AVG[$i]}</td><td bgcolor=\"#2B5D00\">${aBENCH_RESULT_CUSTOMFS_WRITE_MAX[$i]}</td><td bgcolor=\"#5D0000\">${aBENCH_RESULT_CUSTOMFS_WRITE_MIN[$i]}</td><td bgcolor=\"#34005D\">${aBENCH_RESULT_CUSTOMFS_READ_AVG[$i]}</td><td bgcolor=\"#2B5D00\">${aBENCH_RESULT_CUSTOMFS_READ_MAX[$i]}</td><td bgcolor=\"#5D0000\">${aBENCH_RESULT_CUSTOMFS_READ_MIN[$i]}</td></tr>"; done | sort -nrk 2 -t '	')
+			$(for i in "${!aBENCH_CUSTOMFS_INDEX[@]}"; do echo "<tr><td>${aHW_NAME[i]}</td><td>${aBENCH_CUSTOMFS_INDEX[i]}</td><td bgcolor=\"#34005D\">	${aBENCH_RESULT_CUSTOMFS_WRITE_AVG[i]}</td><td bgcolor=\"#2B5D00\">${aBENCH_RESULT_CUSTOMFS_WRITE_MAX[i]}</td><td bgcolor=\"#5D0000\">${aBENCH_RESULT_CUSTOMFS_WRITE_MIN[i]}</td><td bgcolor=\"#34005D\">${aBENCH_RESULT_CUSTOMFS_READ_AVG[i]}</td><td bgcolor=\"#2B5D00\">${aBENCH_RESULT_CUSTOMFS_READ_MAX[i]}</td><td bgcolor=\"#5D0000\">${aBENCH_RESULT_CUSTOMFS_READ_MIN[i]}</td></tr>"; done | sort -nrk 2 -t '	')
 		</table>
 
 		<h2 id="bench_lan"><a href="#bench_lan">DietPi-Benchmarks | LAN I/O &para</a></h2>
@@ -1242,7 +1383,7 @@ shopt -s extglob
 				<td bgcolor="#2B5D00">Fastest</td>
 				<td bgcolor="#5D0000">Slowest</td>
 			</tr>
-			$(for i in "${!aBENCH_LAN_INDEX[@]}"; do echo "<tr><td>${aHW_NAME[$i]}</td><td>${aBENCH_LAN_INDEX[$i]}</td><td bgcolor=\"#34005D\">	${aBENCH_RESULT_NET_LAN_SPEED_AVG[$i]}</td><td bgcolor=\"#2B5D00\">${aBENCH_RESULT_NET_LAN_SPEED_MAX[$i]}</td><td bgcolor=\"#5D0000\">${aBENCH_RESULT_NET_LAN_SPEED_MIN[$i]}</td></tr>"; done | sort -nrk 2 -t '	')
+			$(for i in "${!aBENCH_LAN_INDEX[@]}"; do echo "<tr><td>${aHW_NAME[i]}</td><td>${aBENCH_LAN_INDEX[i]}</td><td bgcolor=\"#34005D\">	${aBENCH_RESULT_NET_LAN_SPEED_AVG[i]}</td><td bgcolor=\"#2B5D00\">${aBENCH_RESULT_NET_LAN_SPEED_MAX[i]}</td><td bgcolor=\"#5D0000\">${aBENCH_RESULT_NET_LAN_SPEED_MIN[i]}</td></tr>"; done | sort -nrk 2 -t '	')
 		</table>
 
 		<a class="scrollup" href="#"><svg viewBox="0 0 12 12"><path d="M1 8l5-5l5 5"/></svg></a>
@@ -1285,7 +1426,7 @@ _EOF_
 		done
 		for i in "${!aCPU_COUNT[@]}"
 		do
-			query+=("insert cores $i=${aCPU_COUNT[$i]}")
+			query+=("insert cores $i=${aCPU_COUNT[i]}")
 		done
 		query+=("insert raspbian raspbian=${aRASPBIAN[1]}")
 		query+=("insert raspbian debian=${aRASPBIAN[0]}")
@@ -1295,6 +1436,8 @@ _EOF_
 		done
 		query+=("insert automation enabled=${aAUTO_SETUP_AUTOMATED[1]}")
 		query+=("insert automation disabled=${aAUTO_SETUP_AUTOMATED[0]}")
+		query+=("insert mmc yes=${aMMC[1]}")
+		query+=("insert mmc no=${aMMC[0]}")
 		for i in "${!aNETWORK_INTERFACE[@]}"
 		do
 			query+=("insert network $i=${aNETWORK_INTERFACE[$i]}")

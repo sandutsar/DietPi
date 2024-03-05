@@ -61,7 +61,7 @@
 	Error_Rsync_Already_Running(){
 
 		G_DIETPI-NOTIFY 1 'Another rsync process is already running.'
-		echo -e "$1 failed: $(Print_Date). rsync is already running." >> "$FP_TARGET/$FP_STATS"
+		echo -e "$(Print_Date)  $1 failed: rsync is already running." >> "$FP_TARGET/$FP_STATS"
 		G_WHIP_MSG "$1 Error:\n\nA $1 could not be started as rsync is already running."
 		/boot/dietpi/dietpi-services start
 
@@ -86,7 +86,7 @@
 
 		elif [[ $fs_type =~ ^nfs4?$ ]]
 		then
-			G_CHECK_FS_PERMISSION_SUPPORT "$FP_TARGET" && return 0
+			G_CHECK_FS_PERMISSION_SUPPORT "$FP_TARGET" && { NFS=1; return 0; }
 			G_DIETPI-NOTIFY 1 "NFS mount $FP_TARGET does not support UNIX permissions"
 			G_WHIP_MSG "Unsupported NFS share:\n\n$FP_TARGET is an NFS share which does not support UNIX permissions.\n\nMake sure that the NFS share at the server is located on a filesystem with native symlink and UNIX permissions support."
 		else
@@ -100,7 +100,7 @@
 
 	Create_Filter_Include_Exclude(){
 
-		cat << _EOF_ > $FP_FILTER
+		cat << _EOF_ > "$FP_FILTER"
 # Backup data, log and config
 - $FP_TARGET/
 - $FP_SETTINGS
@@ -120,9 +120,8 @@
 # APT cache
 - /var/cache/apt/*
 _EOF_
-
 		# Add users filter list
-		[[ -f $FP_FILTER_CUSTOM ]] && cat $FP_FILTER_CUSTOM >> $FP_FILTER
+		[[ -f $FP_FILTER_CUSTOM ]] && cat "$FP_FILTER_CUSTOM" >> "$FP_FILTER"
 
 	}
 
@@ -131,6 +130,7 @@ _EOF_
 		G_DIETPI-NOTIFY 3 "$G_PROGRAM_NAME" 'Backup'
 
 		# Check valid FS
+		NFS=0
 		Check_Supported_Directory_Location || return 1
 
 		# Rotate backups with more than 1 shall be kept
@@ -168,7 +168,7 @@ _EOF_
 		/boot/dietpi/dietpi-services stop
 
 		# Check if rsync is already running, while the daemon should have been stopped above
-		pgrep 'rsync' &> /dev/null && { Error_Rsync_Already_Running 'Backup'; return 1; }
+		pgrep -x 'rsync' &> /dev/null && { Error_Rsync_Already_Running 'Backup'; return 1; }
 
 		# Install required rsync if missing
 		G_AG_CHECK_INSTALL_PREREQ rsync
@@ -176,51 +176,59 @@ _EOF_
 		# Generate Exclude/Include lists
 		Create_Filter_Include_Exclude
 
-		G_DIETPI-NOTIFY 2 'Checking for sufficient disk space via rsync dry-run, please wait...'
-		local old_backup_size=$(du -sB1 "$FP_TARGET/data" | mawk '{print $1}') # Actual disk usage in bytes
-		# - Dry run to obtain transferred data size
-		rsync --dry-run --stats "${aRSYNC_RUN_OPTIONS_BACKUP[@]}" "$FP_SOURCE" "$FP_TARGET/data/" > .dietpi-backup_result
-		local new_backup_size=$(grep -m1 '^Total file size:' .dietpi-backup_result | sed 's/[^0-9]*//g') # Apparent data size without block size related overhead
-		local total_file_count=$(mawk '/^Number of files:/{print $6;exit}' .dietpi-backup_result | sed 's/[^0-9]*//g')
-		local total_folder_count=$(mawk '/^Number of files:/{print $8;exit}' .dietpi-backup_result | sed 's/[^0-9]*//g')
-		rm .dietpi-backup_result
-		local target_fs_blocksize=$(stat -fc '%s' "$FP_TARGET/data")
-		new_backup_size=$(( $new_backup_size + ( $total_file_count + $total_folder_count ) * $target_fs_blocksize )) # Add one block size for each file + dir as worst case result
-		local end_result=$(( ( $new_backup_size - $old_backup_size ) / 1024**2 + 1 )) # bytes => MiB rounded up
-		# - Perform check
-		if ! G_CHECK_FREESPACE "$FP_TARGET/data" $end_result; then
-
-			G_WHIP_BUTTON_OK_TEXT='Ignore'
-			G_WHIP_BUTTON_CANCEL_TEXT='Exit'
-			if ! G_WHIP_YESNO 'The backup target location appears to have insufficient free space to successfully finish the backup.
+		# Free space check
+		if (( $SPACE_CHECK ))
+		then
+			G_DIETPI-NOTIFY 2 'Checking for sufficient disk space via rsync dry-run, please wait...'
+			local old_backup_size=$(du -sB1 "$FP_TARGET/data" | mawk '{print $1}') # Actual disk usage in bytes
+			# - Dry run to obtain transferred data size
+			rsync --dry-run --stats "${aRSYNC_RUN_OPTIONS_BACKUP[@]}" "$FP_SOURCE" "$FP_TARGET/data/" > .dietpi-backup_result
+			local new_backup_size=$(grep -m1 '^Total file size:' .dietpi-backup_result | sed 's/[^0-9]*//g') # Apparent data size without block size related overhead
+			local total_file_count=$(mawk '/^Number of files:/{print $6;exit}' .dietpi-backup_result | sed 's/[^0-9]*//g')
+			local total_folder_count=$(mawk '/^Number of files:/{print $8;exit}' .dietpi-backup_result | sed 's/[^0-9]*//g')
+			rm .dietpi-backup_result
+			local target_fs_blocksize=4096 # In case of NFS, apply fixed 4096 bytes block size, as "stat -fc '%s'" reports a very large network/protocol transfer-related size.
+			(( $NFS )) || target_fs_blocksize=$(stat -fc '%s' "$FP_TARGET/data")
+			new_backup_size=$(( $new_backup_size + ( $total_file_count + $total_folder_count ) * $target_fs_blocksize )) # Add one block size for each file + dir as worst case result
+			local end_result=$(( ( $new_backup_size - $old_backup_size ) / 1024**2 + 1 )) # bytes => MiB rounded up
+			# - Perform check
+			if ! G_CHECK_FREESPACE "$FP_TARGET/data" "$end_result"
+			then
+				G_WHIP_BUTTON_OK_TEXT='Ignore'
+				G_WHIP_BUTTON_CANCEL_TEXT='Exit'
+				if ! G_WHIP_YESNO 'The backup target location appears to have insufficient free space to successfully finish the backup.
 However, this check is a rough estimation in reasonable time, thus it could be marginally incorrect.
-\nWould you like to override this warning and continue with the backup?'; then
-
-				echo -e "Backup cancelled due to insufficient free space    : $(Print_Date)" >> "$FP_TARGET/$FP_STATS"
-				/boot/dietpi/dietpi-services start
-				return 1
-
+\nWould you like to override this warning and continue with the backup?'
+				then
+					echo -e "$(Print_Date)  Backup cancelled: Insufficient free space" >> "$FP_TARGET/$FP_STATS"
+					/boot/dietpi/dietpi-services start
+					return 1
+				fi
 			fi
-
 		fi
 
 		G_DIETPI-NOTIFY 2 "Backup to $FP_TARGET in progress, please wait..."
 
 		# Init log file
 		echo -e "Backup log from $(Print_Date)\n" > "$FP_TARGET/$FP_LOG"
+		echo -e "$(Print_Date)  Backup starting" >> "$FP_TARGET/$FP_STATS"
 
 		rsync "${aRSYNC_RUN_OPTIONS_BACKUP[@]}" -v --log-file="$FP_TARGET/$FP_LOG" "$FP_SOURCE" "$FP_TARGET/data/"
 		EXIT_CODE=$?
+
+		# Manually backup /etc/debian_version, since it can have same size and mtime between different Debian version, hence backing up e.g. a Bookworm system onto an existing Bullseye backup won't include this critical file.
+		# - The alternative would be "-c" to compare checksums, but this can increases the duration significantly.
+		G_EXEC cp -a "${FP_SOURCE}etc/debian_version" "$FP_TARGET/data/etc/debian_version"
 
 		# touch target directory to show the correct last update timestamp when restoring one of multiple backups from the archive. This needs to be done after the backup since it applies the root / timestamps.
 		G_EXEC touch "$FP_TARGET/data"
 
 		/boot/dietpi/dietpi-services start
 
-		G_DIETPI-NOTIFY -1 $EXIT_CODE "$G_PROGRAM_NAME: Backup"
+		G_DIETPI-NOTIFY -1 "$EXIT_CODE" "$G_PROGRAM_NAME: Backup"
 		if (( $EXIT_CODE == 0 )); then
 
-			echo -e "Backup completed    : $(Print_Date)" >> "$FP_TARGET/$FP_STATS"
+			echo -e "$(Print_Date)  Backup completed" >> "$FP_TARGET/$FP_STATS"
 			G_WHIP_MSG "Backup completed:\n - $FP_TARGET"
 
 		else
@@ -236,11 +244,11 @@ However, this check is a rough estimation in reasonable time, thus it could be m
 	# When restoring a backup, assure that either the UUIDs stored in the backup fstab/boot config matches the current system drive, or that we know all relevant files to adjust afterwards.
 	Check_UUIDs()
 	{
-		UPDATE_UUIDs=0 UPDATE_GRUB=0 UPDATE_RPI=0 UPDATE_ARMBIAN=0 UPDATE_ODROID=0 UPDATE_UBOOT=0
+		UPDATE_UUIDs=0 UPDATE_GRUB=0 UPDATE_RPI=0 UPDATE_DIETPI=0 UPDATE_ARMBIAN=0 UPDATE_ODROID=0 UPDATE_UBOOT=0
 		UUID_ROOT=$(findmnt -Ufnro UUID -M /)
 		PARTUUID_ROOT=$(findmnt -Ufnro PARTUUID -M /)
 
-		# If the current rootfs' UUID or PARTUUID can be found in the the backups fstab, it can be assumed that it was created from the same drives.
+		# If the current rootfs' UUID or PARTUUID can be found in the backups fstab, it can be assumed that it was created from the same drives.
 		grep -q "^UUID=${UUID_ROOT}[[:blank:]]" "$FP_TARGET/$DATA/etc/fstab" || grep -q "^PARTUUID=${PARTUUID_ROOT}[[:blank:]]" "$FP_TARGET/$DATA/etc/fstab" && return 0
 
 		UPDATE_UUIDs=1
@@ -252,9 +260,14 @@ However, this check is a rough estimation in reasonable time, thus it could be m
 			UPDATE_GRUB=1
 
 		# - RPi
-		elif (( $G_HW_MODEL < 10 )) && [[ -f $FP_TARGET/$DATA/boot/cmdline.txt ]]
+		elif [[ $G_HW_MODEL -le 9 && -f $FP_TARGET/$DATA/boot/cmdline.txt ]]
 		then
 			UPDATE_RPI=1
+
+		# - DietPi modern U-Boot
+		elif [[ -f $FP_TARGET/$DATA/boot/dietpiEnv.txt ]]
+		then
+			UPDATE_DIETPI=1
 
 		# - Armbian
 		elif [[ -f $FP_TARGET/$DATA/boot/armbianEnv.txt ]]
@@ -297,9 +310,9 @@ However, this check is a rough estimation in reasonable time, thus it could be m
 		do
 			[[ $mountpoint ]] || continue
 			local uuid=$(findmnt -Ufnro UUID -M "$mountpoint")
-			[[ $uuid ]] && G_EXEC sed -i "\|[[:blank:]]${mountpoint}[[:blank:]]|s|^[[:blank:]]*UUID=[^[:blank:]]*|UUID=$uuid|" /etc/fstab
+			[[ $uuid ]] && G_EXEC sed --follow-symlinks -i "\|[[:blank:]]${mountpoint}[[:blank:]]|s|^[[:blank:]]*UUID=[^[:blank:]]*|UUID=$uuid|" /etc/fstab
 			local partuuid=$(findmnt -Ufnro PARTUUID -M "$mountpoint")
-			[[ $partuuid ]] && G_EXEC sed -i "\|[[:blank:]]${mountpoint}[[:blank:]]|s|^[[:blank:]]*PARTUUID=[^[:blank:]]*|PARTUUID=$partuuid|" /etc/fstab
+			[[ $partuuid ]] && G_EXEC sed --follow-symlinks -i "\|[[:blank:]]${mountpoint}[[:blank:]]|s|^[[:blank:]]*PARTUUID=[^[:blank:]]*|PARTUUID=$partuuid|" /etc/fstab
 
 		done < <(lsblk -no MOUNTPOINT "$(lsblk -npo PKNAME "$G_ROOTFS_DEV")")
 
@@ -307,7 +320,7 @@ However, this check is a rough estimation in reasonable time, thus it could be m
 		# - x86_64
 		if (( $UPDATE_GRUB == 1 ))
 		then
-			G_EXEC update-grub
+			G_EXEC_OUTPUT=1 G_EXEC update-grub
 			command -v update-tirfs > /dev/null && G_EXEC update-tirfs && return
 			command -v dracut > /dev/null && G_EXEC dracut --force && return
 			command -v update-initramfs > /dev/null && G_EXEC update-initramfs -u
@@ -315,7 +328,13 @@ However, this check is a rough estimation in reasonable time, thus it could be m
 		# - RPi
 		elif (( $UPDATE_RPI == 1 ))
 		then
-			G_EXEC sed -Ei "s/(^|[[:blank:]])root=[^[:blank:]]*/\1root=PARTUUID=$PARTUUID_ROOT/" /boot/cmdline.txt
+			G_EXEC sed --follow-symlinks -Ei "s/(^|[[:blank:]])root=[^[:blank:]]*/\1root=PARTUUID=$PARTUUID_ROOT/" /boot/cmdline.txt
+
+		# - DietPi modern U-Boot
+		elif (( $UPDATE_DIETPI == 1 ))
+		then
+			grep -q '^[[:blank:]]*rootdev=UUID=' /boot/dietpiEnv.txt && G_CONFIG_INJECT 'rootdev=UUID=' "rootdev=UUID=$UUID_ROOT" /boot/dietpiEnv.txt && return
+			grep -q '^[[:blank:]]*rootdev=PARTUUID=' /boot/dietpiEnv.txt && G_CONFIG_INJECT 'rootdev=PARTUUID=' "rootdev=PARTUUID=$PARTUUID_ROOT" /boot/dietpiEnv.txt
 
 		# - Armbian
 		elif (( $UPDATE_ARMBIAN == 1 ))
@@ -326,14 +345,12 @@ However, this check is a rough estimation in reasonable time, thus it could be m
 		# - Odroids / classic U-Boot
 		elif (( $UPDATE_ODROID == 1 ))
 		then
-			G_EXEC sed -Ei "s/(\"|root=)UUID=[^[:blank:]\"]*/\1UUID=$UUID_ROOT/" /boot/boot.ini
-			G_EXEC sed -Ei "s/(\"|root=)PARTUUID=[^[:blank:]\"]*/\1PARTUUID=$PARTUUID_ROOT/" /boot/boot.ini
+			G_EXEC sed --follow-symlinks -Ei -e "s/(\"|root=)UUID=[^[:blank:]\"]*/\1UUID=$UUID_ROOT/" -e "s/(\"|root=)PARTUUID=[^[:blank:]\"]*/\1PARTUUID=$PARTUUID_ROOT/" /boot/boot.ini
 
 		# - Modern U-Boot
 		elif (( $UPDATE_UBOOT == 1 ))
 		then
-			G_EXEC sed -Ei "s/(\"|root=)UUID=[^[:blank:]\"]*/\1UUID=$UUID_ROOT/" /boot/boot.cmd
-			G_EXEC sed -Ei "s/(\"|root=)PARTUUID=[^[:blank:]\"]*/\1PARTUUID=$PARTUUID_ROOT/" /boot/boot.cmd
+			G_EXEC sed --follow-symlinks -Ei -e "s/(\"|root=)UUID=[^[:blank:]\"]*/\1UUID=$UUID_ROOT/" -e "s/(\"|root=)PARTUUID=[^[:blank:]\"]*/\1PARTUUID=$PARTUUID_ROOT/" /boot/boot.cmd
 			G_EXEC mkimage -C none -A arm -T script -d /boot/boot.cmd /boot/boot.scr
 		fi
 	}
@@ -358,7 +375,7 @@ However, this check is a rough estimation in reasonable time, thus it could be m
 		/boot/dietpi/dietpi-services stop
 
 		# Check if rsync is already running, while the daemon should have been stopped above
-		pgrep 'rsync' &> /dev/null && { Error_Rsync_Already_Running 'Restore'; return 1; }
+		pgrep -x 'rsync' &> /dev/null && { Error_Rsync_Already_Running 'Restore'; return 1; }
 
 		# Install required rsync if missing
 		G_AG_CHECK_INSTALL_PREREQ rsync
@@ -370,19 +387,24 @@ However, this check is a rough estimation in reasonable time, thus it could be m
 
 		# Init log file
 		echo -e "Restore log from $(Print_Date)\n" > "$FP_TARGET/$FP_LOG"
+		echo -e "$(Print_Date)  Restore starting" >> "$FP_TARGET/$FP_STATS"
 
 		rsync "${aRSYNC_RUN_OPTIONS_RESTORE[@]}" -v --log-file="$FP_TARGET/$FP_LOG" "$FP_TARGET/$DATA/" "$FP_SOURCE"
 		EXIT_CODE=$?
+
+		# Manually restore /etc/debian_version, since it can have same size and mtime between different Debian version, hence restoring e.g. a Bullseye system on Bookworm won't restore this critical file.
+		# - The alternative would be "-c" to compare checksums, but this can increases the duration significantly.
+		G_EXEC cp -a "$FP_TARGET/$DATA/etc/debian_version" "${FP_SOURCE}etc/debian_version"
 
 		hash -r # Clear PATH cache
 		(( $UPDATE_UUIDs )) && Update_UUIDs
 
 		/boot/dietpi/dietpi-services start
 
-		G_DIETPI-NOTIFY -1 $EXIT_CODE "$G_PROGRAM_NAME: Restore"
+		G_DIETPI-NOTIFY -1 "$EXIT_CODE" "$G_PROGRAM_NAME: Restore"
 		if (( $EXIT_CODE == 0 )); then
 
-			echo -e "Restore completed    : $(Print_Date)" >> "$FP_TARGET/$FP_STATS"
+			echo -e "$(Print_Date)  Restore completed" >> "$FP_TARGET/$FP_STATS"
 			G_WHIP_MSG "Restore completed:\n - $FP_TARGET\n\nNB: A Reboot is highly recommended."
 
 		else
@@ -401,17 +423,20 @@ However, this check is a rough estimation in reasonable time, thus it could be m
 	readonly FP_SETTINGS='/boot/dietpi/.dietpi-backup_settings'
 	DAILY_BACKUP=0
 	AMOUNT=1
+	SPACE_CHECK=0
 
 	Write_Settings_File()
 	{
-		cat << _EOF_ > $FP_SETTINGS
+		cat << _EOF_ > "$FP_SETTINGS"
 FP_TARGET=$FP_TARGET
 DAILY_BACKUP=$DAILY_BACKUP
 AMOUNT=$AMOUNT
+SPACE_CHECK=$SPACE_CHECK
 _EOF_
 	}
 
-	Read_Settings_File(){ [[ -f $FP_SETTINGS ]] && . $FP_SETTINGS; }
+	# shellcheck disable=SC1090
+	Read_Settings_File(){ [[ -f $FP_SETTINGS ]] && . "$FP_SETTINGS"; }
 
 	#/////////////////////////////////////////////////////////////////////////////////////
 	# Menus
@@ -426,6 +451,8 @@ _EOF_
 		local backup_last_completed='Backup not found. Please create one.'
 		local daily_backup_text='Off'
 		(( $DAILY_BACKUP )) && daily_backup_text='On'
+		local space_check_text='Off'
+		(( $SPACE_CHECK )) && space_check_text='On'
 
 		G_WHIP_MENU_ARRAY=(
 			'' '●─ Info '
@@ -438,6 +465,7 @@ _EOF_
 			'Filter' ': Modify include/exclude filter for backups.'
 			'Daily Backup' ": [$daily_backup_text] Daily backups via cron job"
 			'Amount' ": [$AMOUNT] The amount of backups to keep"
+			'Space check' ": [$space_check_text] Check free space before backup"
 		)
 		if [[ -f $FP_TARGET/$FP_STATS ]]
 		then
@@ -468,11 +496,13 @@ _EOF_
 
 				'Location') TARGETMENUID=1;;
 
-				'Filter') nano $FP_FILTER_CUSTOM;;
+				'Filter') nano "$FP_FILTER_CUSTOM";;
 
 				'Daily Backup') DAILY_BACKUP=$(( ! $DAILY_BACKUP ));;
 
 				'Amount') G_WHIP_DEFAULT_ITEM=$AMOUNT G_WHIP_INPUTBOX 'Please enter the amount of backups to keep.\n - Needs to be 1 or greater.' && G_CHECK_VALIDINT "$G_WHIP_RETURNED_VALUE" 1 && AMOUNT=$G_WHIP_RETURNED_VALUE;;
+
+				'Space check') SPACE_CHECK=$(( ! $SPACE_CHECK ));;
 
 				'Delete') G_WHIP_YESNO "Do you wish to DELETE the following backup?\n - $FP_TARGET" && G_EXEC_NOEXIT=1 G_EXEC rm -R "$FP_TARGET";;
 
@@ -495,6 +525,8 @@ _EOF_
 					G_WHIP_YESNO "The system will be restored from:\n - $FP_TARGET\n\nDo you wish to continue and start the restore?" && Run_Restore
 				;;
 
+				*) :;;
+
 			esac
 
 		else
@@ -515,11 +547,11 @@ _EOF_
 			'Search' ': Find previous backups'
 			'List' ': Select from a list of available mounts/drives'
 			'Manual' ': Manually type a directory to use'
-
 		)
 
-		if G_WHIP_MENU "Please select the location where the backup will be saved, and restored from.\n\nYour current location:\n$FP_TARGET"; then
-
+		G_WHIP_BUTTON_OK_TEXT='Select' G_WHIP_BUTTON_CANCEL_TEXT='Back'
+		if G_WHIP_MENU "Please select the location where the backup will be saved, and restored from.\n\nYour current location:\n$FP_TARGET"
+		then
 			local current_directory=$FP_TARGET
 
 			case "$G_WHIP_RETURNED_VALUE" in
@@ -531,8 +563,8 @@ _EOF_
 					mapfile -t alist < <(find / -type f -name "$FP_STATS")
 
 					# Do we have any results?
-					if [[ ${alist[0]} ]]; then
-
+					if [[ ${alist[0]} ]]
+					then
 						# Create List for Whiptail
 						G_WHIP_MENU_ARRAY=()
 						for i in "${alist[@]}"
@@ -544,14 +576,10 @@ _EOF_
 
 						G_WHIP_MENU 'Please select a previous backup to use:' || return 0
 						FP_TARGET=$G_WHIP_RETURNED_VALUE
-
 					else
-
 						G_WHIP_MSG 'No previous backups were found.'
 						return 0
-
 					fi
-
 				;;
 
 				'Manual')
@@ -559,7 +587,6 @@ _EOF_
 					G_WHIP_DEFAULT_ITEM=$FP_TARGET
 					G_WHIP_INPUTBOX 'Please enter the absolute path to the backup directory.\nE.g.: /mnt/dietpi-backup\n - Must be a filesystem which supports symlinks and UNIX permissions, like ext4, F2FS, Btrfs, XFS, ZFS or a proper NFS mount' || return 0
 					FP_TARGET=$G_WHIP_RETURNED_VALUE
-
 				;;
 
 				'List')
@@ -570,18 +597,16 @@ _EOF_
 
 					[[ $FP_TARGET == '/' ]] && FP_TARGET='/mnt'
 					FP_TARGET+='/dietpi-backup'
-
 				;;
+
+				*) :;;
 
 			esac
 
 			# If not supported, reset directory target to previous
 			Check_Supported_Directory_Location || FP_TARGET=$current_directory
-
 		else
-
 			TARGETMENUID=0 # Return to main menu
-
 		fi
 
 	}
@@ -596,21 +621,22 @@ _EOF_
 	[[ $2 ]] && FP_TARGET=$2
 
 	# Create default filter file, if not yet present
-	[[ -f $FP_FILTER_CUSTOM ]] || cat << '_EOF_' > $FP_FILTER_CUSTOM
+	[[ -f $FP_FILTER_CUSTOM ]] || cat << '_EOF_' > "$FP_FILTER_CUSTOM"
 # DietPi-Backup include/exclude filter
 
 # Prefix "-" exclude items, "+" include items which would match a wildcard exclude rule.
 # Suffix "/" match directories only, no files or symlinks.
-# Using wildcard "*" matches any item name or part of it.
-# Since the list is processed from top to bottom and the first match defines the result,
-#   includes need to be defined before their wildcard exclude rule
-#   and in case excludes before their wildcard include rule.
+# Wildcard "*" matches any item name or part of it, but "/dir/*" does not match the dir itself.
+# Since the list is processed from top to bottom and the first match defines the applied rule:
+# - Includes need to be defined before their wildcard exclude rule.
+# - Excludes need to be defined before their wildcard include rule.
 # Symlinks are handled as such and never processed recursively.
 # Excluded directories are not processed recursively, so contained items cannot be included.
+# Included directories are not processed recursively, so contained items cannot be excluded.
 # Hence, to include items within an excluded directory:
 # - Do not exclude the directory itself, but contained items via wildcard.
 # - Define includes first, to override the wildcard exclude rule.
-# - See the below default rules, how we exclude all items below /mnt
+# - See the below default rules, how we exclude all items below /mnt/
 #   but include the dietpi_userdata directory, if it is no symlink.
 # To prevent loops, the backup target dir, log and config are excluded internally.
 
@@ -653,6 +679,6 @@ _EOF_
 
 	fi
 	#-----------------------------------------------------------------------------------
-	exit $EXIT_CODE
+	exit "$EXIT_CODE"
 	#-----------------------------------------------------------------------------------
 }

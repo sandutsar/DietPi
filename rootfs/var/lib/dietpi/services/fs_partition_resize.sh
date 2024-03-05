@@ -21,29 +21,66 @@
 	# Detect root partition and parent drive for supported naming schemes:
 	# - SCSI/SATA:	/dev/sd[a-z][1-9]
 	# - IDE:	/dev/hd[a-z][1-9]
+	# - VirtIO:	/dev/vd[a-z][1-9]
 	# - eMMC:	/dev/mmcblk[0-9]p[1-9]
 	# - NVMe:	/dev/nvme[0-9]n[0-9]p[1-9]
 	# - loop:	/dev/loop[0-9]p[1-9]
-	if [[ $ROOT_DEV == /dev/[sh]d[a-z][1-9] ]]; then
-
+	if [[ $ROOT_DEV == /dev/[shv]d[a-z][1-9] ]]
+	then
 		ROOT_PART=${ROOT_DEV: -1}	# /dev/sda1 => 1
-		ROOT_DRIVE=${ROOT_DEV%[1-9]}	# /dev/sda1 => /dev/sda
+		ROOT_DRIVE=${ROOT_DEV::-1}	# /dev/sda1 => /dev/sda
 
-	elif [[ $ROOT_DEV =~ ^/dev/(mmcblk|nvme[0-9]n|loop)[0-9]p[1-9]$ ]]; then
-
-		ROOT_PART=${ROOT_DEV##*[0-9]p}	# /dev/mmcblk0p1 => 1
-		ROOT_DRIVE=${ROOT_DEV%p[1-9]}	# /dev/mmcblk0p1 => /dev/mmcblk0
-
+	elif [[ $ROOT_DEV =~ ^/dev/(mmcblk|nvme[0-9]n|loop)[0-9]p[1-9]$ ]]
+	then
+		ROOT_PART=${ROOT_DEV: -1}	# /dev/mmcblk0p1 => 1
+		ROOT_DRIVE=${ROOT_DEV::-2}	# /dev/mmcblk0p1 => /dev/mmcblk0
 	else
-
 		echo "[FAILED] Unsupported root device naming scheme ($ROOT_DEV). Aborting..."
 		exit 1
+	fi
+	echo "[ INFO ] Detected root drive $ROOT_DRIVE with root partition $ROOT_PART"
 
+	# Check if the last partition contains a FAT filesystem with DIETPISETUP label
+	LAST_PART=$(lsblk -nrbo FSTYPE,LABEL "$ROOT_DRIVE" | tail -1)
+	if [[ $LAST_PART == 'vfat DIETPISETUP' ]]
+	then
+		SETUP_PART=$(sfdisk -lqo DEVICE "$ROOT_DRIVE" | tail -1)
+		echo "[ INFO ] Detected trailing DietPi setup partition $SETUP_PART"
+		# Mount it and copy files if present and newer
+		TMP_MOUNT=$(mktemp -d)
+		mount -v "$SETUP_PART" "$TMP_MOUNT"
+		for f in 'dietpi.txt' 'dietpi-wifi.txt' 'dietpiEnv.txt' 'unattended_pivpn.conf' 'Automation_Custom_PreScript.sh' 'Automation_Custom_Script.sh'
+		do
+			[[ -f $TMP_MOUNT/$f ]] && cp -uv "$TMP_MOUNT/$f" /boot/
+		done
+		umount -v "$SETUP_PART"
+		rmdir -v "$TMP_MOUNT"
+		# Finally delete the partition so the resizing works
+		sfdisk --no-reread --no-tell-kernel --delete "$ROOT_DRIVE" "${SETUP_PART: -1}"
+
+	elif grep -q '[[:blank:]]/boot/firmware[[:blank:]][[:blank:]]*vfat[[:blank:]]' /etc/fstab
+	then
+		BOOT_PART=$(mawk '/[[:blank:]]\/boot\/firmware[[:blank:]][[:blank:]]*vfat[[:blank:]]/{print $1}' /etc/fstab)
+		echo "[ INFO ] Detected RPi boot/firmware partition $BOOT_PART"
+		# Mount it and copy files if present and newer
+		TMP_MOUNT=$(mktemp -d)
+		mount -v "$BOOT_PART" "$TMP_MOUNT"
+		for f in 'dietpi.txt' 'dietpi-wifi.txt' 'dietpiEnv.txt' 'unattended_pivpn.conf' 'Automation_Custom_PreScript.sh' 'Automation_Custom_Script.sh'
+		do
+			[[ -f $TMP_MOUNT/$f ]] && cp -uv "$TMP_MOUNT/$f" /boot/
+		done
+		umount -v "$BOOT_PART"
+		rmdir -v "$TMP_MOUNT"
+	else
+		echo "[ INFO ] No DietPi setup partition found, last partition is: \"$LAST_PART\""
+		lsblk -po NAME,LABEL,SIZE,TYPE,FSTYPE,MOUNTPOINT "$ROOT_DRIVE"
 	fi
 
 	# Only increase partition size if not yet done on first boot
-	if [[ ! -f '/dietpi_skip_partition_resize' ]]
+	if [[ -f '/dietpi_skip_partition_resize' ]]
 	then
+		rm -v /dietpi_skip_partition_resize
+	else
 		# Failsafe: Sync changes to disk before touching partitions
 		sync
 
@@ -60,34 +97,25 @@
 
 		# Give the system some time to have the changes fully applied: https://github.com/MichaIng/DietPi/issues/5006
 		sleep 0.5
-	else
-		rm /dietpi_skip_partition_resize
 	fi
 
 	# Detect root filesystem type
 	ROOT_FSTYPE=$(findmnt -Ufnro FSTYPE -M /)
 
 	# Maximise root filesystem if type is supported
-	if [[ $ROOT_FSTYPE == ext[2-4] ]]; then
-
-		resize2fs "$ROOT_DEV"
-
-	elif [[ $ROOT_FSTYPE == 'f2fs' ]]; then
-
-		mount -o remount,ro /
-		resize.f2fs "$ROOT_DEV"
-		mount -o remount,rw /
-
-	elif [[ $ROOT_FSTYPE == 'btrfs' ]]; then
-
-		btrfs filesystem resize max /
-
-	else
-
-		echo "[FAILED] Unsupported root filesystem type ($ROOT_FSTYPE). Aborting..."
-		exit 1
-
-	fi
+	case $ROOT_FSTYPE in
+		'ext'[234]) resize2fs "$ROOT_DEV" || reboot;; # Reboot if resizing fails: https://github.com/MichaIng/DietPi/issues/6149
+		'f2fs')
+			mount -o remount,ro /
+			resize.f2fs "$ROOT_DEV"
+			mount -o remount,rw /
+		;;
+		'btrfs') btrfs filesystem resize max /;;
+		*)
+			echo "[FAILED] Unsupported root filesystem type ($ROOT_FSTYPE). Aborting..."
+			exit 1
+		;;
+	esac
 
 	exit 0
 }

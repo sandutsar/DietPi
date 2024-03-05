@@ -53,7 +53,7 @@
 	Create_Filter_Include_Exclude(){
 
 		# Exclude files by name
-		cat << _EOF_ > $FP_FILTER_INCLUDE_EXCLUDE
+		cat << _EOF_ > "$FP_FILTER_INCLUDE_EXCLUDE"
 - $FP_LOG
 - $FP_FILTER_INCLUDE_EXCLUDE
 - .swap*
@@ -64,34 +64,32 @@
 - SyncToy* # MS SyncToy
 - System Volume Information # causes error code 23 (permission denied)
 _EOF_
-
 		# Exclude specific files/dirs by path
 		local aexclude=(
 
 			"$FP_TARGET"
 			"$FP_SETTINGS"
 			"$FP_USER_FILTER_INCLUDE_EXCLUDE"
-			/var/swap
-
+			'/var/swap'
 		)
 
 		for i in "${aexclude[@]}"
 		do
 			# Exclude only, if inside source location, via path, relative to source location
-			[[ $i == ${FP_SOURCE}/* ]] && echo "- $(realpath --relative-to="$FP_SOURCE" "$i")" >> $FP_FILTER_INCLUDE_EXCLUDE
+			[[ $i == "$FP_SOURCE/"* ]] && echo "- $(realpath --relative-to="$FP_SOURCE" "$i")" >> "$FP_FILTER_INCLUDE_EXCLUDE"
 		done
 
 		unset aexclude
 
 		# Add users additional list
-		[[ -f $FP_USER_FILTER_INCLUDE_EXCLUDE ]] && cat $FP_USER_FILTER_INCLUDE_EXCLUDE >> $FP_FILTER_INCLUDE_EXCLUDE
+		[[ -f $FP_USER_FILTER_INCLUDE_EXCLUDE ]] && cat "$FP_USER_FILTER_INCLUDE_EXCLUDE" >> "$FP_FILTER_INCLUDE_EXCLUDE"
 
 	}
 
 	Run_Sync(){
 
 		# Stop rsync service: https://github.com/MichaIng/DietPi/issues/1869
-		if systemctl is-active rsync &> /dev/null; then
+		if systemctl -q is-active rsync; then
 
 			SERVICE_CONTROL=1
 			G_EXEC systemctl stop rsync
@@ -100,26 +98,26 @@ _EOF_
 
 		# Pre-create target dir, which also checks R/W access
                 # - Remove previous mkdir log
-		[[ -f $FP_LOG_ALT ]] && rm $FP_LOG_ALT
-		mkdir -p "$FP_TARGET" &> $FP_LOG
+		[[ -f $FP_LOG_ALT ]] && rm "$FP_LOG_ALT"
+		mkdir -p "$FP_TARGET" &> "$FP_LOG"
 
 		# Error: Dir not found
 		if [[ ! -d $FP_TARGET ]]; then
 
-			G_WHIP_MSG "[FAILED] Unable to pre-create target directory: $FP_TARGET\n\n\"mkdir\" reported the following error:\n$(<$FP_LOG)"
+			G_WHIP_MSG "[FAILED] Unable to pre-create target directory: $FP_TARGET\n\n\"mkdir\" reported the following error:\n$(<"$FP_LOG")"
 			# We cannot log to target dir, use $FP_LOG_ALT instead
-			echo "$(date +"%Y-%m-%d_%T") [FAILED] Unable to pre-create target directory: $FP_TARGET" >> $FP_LOG
-			mv $FP_LOG $FP_LOG_ALT
+			echo "$(date +"%Y-%m-%d_%T") [FAILED] Unable to pre-create target directory: $FP_TARGET" >> "$FP_LOG"
+			mv "$FP_LOG" "$FP_LOG_ALT"
 
 		# Error: Empty source dir
 		elif [[ ! $(ls -A "$FP_SOURCE") ]]; then
 
-			G_WHIP_MSG "[FAILED] The chosen source directory is empty: $FP_SOURCE\n\nPlease check it's path and in case verify that it's mount is active."
+			G_WHIP_MSG "[FAILED] The chosen source directory is empty: $FP_SOURCE\n\nPlease check its path and in case verify that its mount is active."
 			# Log to target dir directly, preserve previous rsync log
 			echo "$(date +"%Y-%m-%d_%T") [FAILED] The chosen source directory is empty: $FP_SOURCE" >> "$FP_TARGET/$FP_LOG"
 
 		# Error: Rsync still running
-		elif pgrep '[r]sync' &> /dev/null; then
+		elif pgrep -x 'rsync' &> /dev/null; then
 
 			G_WHIP_MSG '[FAILED] Rsync is already running and failed to stop gracefully\n\nPlease check active rsync processes e.g. via "htop" and finish or kill them.'
 			# Log to target dir directly, preserve previous rsync log
@@ -137,8 +135,8 @@ _EOF_
 			(( $SYNC_DELETE_MODE )) && aoptions+=('--delete' '--delete-excluded')
 
 			# Dry run
-			G_DIETPI-NOTIFY 3 $G_PROGRAM_NAME "Dry run $FP_SOURCE > $FP_TARGET"
-			rsync --dry-run --stats "${aoptions[@]}" "$FP_SOURCE"/ "$FP_TARGET"/ > .dietpi-sync_result
+			G_DIETPI-NOTIFY 3 "$G_PROGRAM_NAME" "Dry run $FP_SOURCE > $FP_TARGET"
+			rsync --dry-run --stats "${aoptions[@]}" "$FP_SOURCE/" "$FP_TARGET/" > .dietpi-sync_result
 			EXIT_CODE=$?
 			if (( ! $EXIT_CODE )); then
 
@@ -156,7 +154,7 @@ _EOF_
 
 				local menu_test="[  OK  ] Dry run completed (NO changes made):\n - $FP_SOURCE > $FP_TARGET"
 				G_WHIP_DEFAULT_ITEM='Sync'
-				if ! G_CHECK_FREESPACE "$FP_TARGET" $end_result; then
+				if ! G_CHECK_FREESPACE "$FP_TARGET" "$end_result"; then
 
 					if (( $INPUT == 1 )); then
 
@@ -174,59 +172,49 @@ Continue only if you know what you are doing and after checking the log!"
 
 				fi
 
-				while :
+				[[ $INPUT == 1 ]] || while :
 				do
 					G_WHIP_MENU_ARRAY=(
 
 						'Sync' ': Continue with real sync'
 						'Log' ': View log file for details'
 						'Cancel' ': Abort sync, no changes will be made'
-
 					)
 
 					G_WHIP_MENU "$menu_test\n\n$(sed -n 4,9p .dietpi-sync_result)"
 
-					if [[ $G_WHIP_RETURNED_VALUE == 'Log' ]]; then
-
-						G_WHIP_VIEWFILE $FP_LOG
-						G_WHIP_DEFAULT_ITEM='Log'
-
-					elif [[ $G_WHIP_RETURNED_VALUE == 'Sync' || $INPUT == 1 ]]; then
-
-						break
-
-					else
-
-						return
-
-					fi
+					case $G_WHIP_RETURNED_VALUE in
+						'Log') G_WHIP_VIEWFILE "$FP_LOG"; G_WHIP_DEFAULT_ITEM='Log';;
+						'Sync') break;;
+						*) return;;
+					esac
 				done
 
 				# Sync
-				G_DIETPI-NOTIFY 3 $G_PROGRAM_NAME "Sync $FP_SOURCE > $FP_TARGET"
+				G_DIETPI-NOTIFY 3 "$G_PROGRAM_NAME" "Sync $FP_SOURCE > $FP_TARGET"
 				# - Clear log file from dry run
-				> $FP_LOG
-				rsync "${aoptions[@]}" "$FP_SOURCE"/ "$FP_TARGET"/
+				> "$FP_LOG"
+				rsync "${aoptions[@]}" "$FP_SOURCE/" "$FP_TARGET/"
 				EXIT_CODE=$?
 
 			fi
 
-			G_DIETPI-NOTIFY -1 $EXIT_CODE $G_PROGRAM_NAME
+			G_DIETPI-NOTIFY -1 "$EXIT_CODE" "$G_PROGRAM_NAME"
 
 			if (( $EXIT_CODE )); then
 
-				echo "$(date +"%Y-%m-%d_%T") [FAILED] Please see the log file for more information: $FP_TARGET/$FP_LOG" >> $FP_LOG
+				echo "$(date +"%Y-%m-%d_%T") [FAILED] Please see the log file for more information: $FP_TARGET/$FP_LOG" >> "$FP_LOG"
 				G_WHIP_MSG "[FAILED] $FP_SOURCE > $FP_TARGET\n\nYou will given an option to view the logfile on the next screen. Please check it for information and/or errors."
 
 			else
 
-				echo "$(date +"%Y-%m-%d_%T") [  OK  ] Sync completed" >> $FP_LOG
+				echo "$(date +"%Y-%m-%d_%T") [  OK  ] Sync completed" >> "$FP_LOG"
 				G_WHIP_MSG "[  OK  ] Sync completed:\n - $FP_SOURCE > $FP_TARGET"
 
 			fi
 
-			log=1 G_WHIP_VIEWFILE $FP_LOG
-			mv $FP_LOG "$FP_TARGET"/
+			log=1 G_WHIP_VIEWFILE "$FP_LOG"
+			mv "$FP_LOG" "$FP_TARGET/"
 
 		fi
 
@@ -249,7 +237,7 @@ Continue only if you know what you are doing and after checking the log!"
 	#/////////////////////////////////////////////////////////////////////////////////////
 	Write_Settings_File(){
 
-		cat << _EOF_ > $FP_SETTINGS
+		cat << _EOF_ > "$FP_SETTINGS"
 FP_SOURCE='$FP_SOURCE'
 FP_TARGET='$FP_TARGET'
 SYNC_DELETE_MODE=$SYNC_DELETE_MODE
@@ -258,7 +246,8 @@ _EOF_
 
 	}
 
-	Read_Settings_File(){ [[ -f $FP_SETTINGS ]] && . $FP_SETTINGS; }
+	# shellcheck disable=SC1090
+	Read_Settings_File(){ [[ -f $FP_SETTINGS ]] && . "$FP_SETTINGS"; }
 
 	#/////////////////////////////////////////////////////////////////////////////////////
 	# MENUS
@@ -281,7 +270,7 @@ _EOF_
 
 		elif [[ -f $FP_LOG_ALT ]]; then
 
-			local sync_last_status=$(tail -1 $FP_LOG_ALT)
+			local sync_last_status=$(tail -1 "$FP_LOG_ALT")
 
 		else
 
@@ -300,7 +289,6 @@ _EOF_
 			'Daily Sync' ": [$SYNC_CRONDAILY_TEXT] Daily sync via cron job"
 			'' '●─ Run '
 			'Dry run + Sync' ': Sync from Source to Target (Dry run included!)'
-
 		)
 
 		G_WHIP_DEFAULT_ITEM=$MENU_LASTITEM_MAIN
@@ -326,6 +314,8 @@ More information:\n - https://dietpi.com/docs/dietpi_tools/#dietpi-sync';;
 				'Daily Sync') Menu_Set_CronDaily;;
 
 				'Dry run + Sync') Run_Sync;;
+
+				*) :;;
 
 			esac
 
@@ -401,7 +391,6 @@ More information:\n - https://dietpi.com/docs/dietpi_tools/#dietpi-sync';;
 						TARGETMENUID=0
 
 					fi
-
 				;;
 
 				'Manual') Input_User_Directory;;
@@ -427,8 +416,9 @@ More information:\n - https://dietpi.com/docs/dietpi_tools/#dietpi-sync';;
 						Prompt_Setup_Samba_Mount
 
 					fi
-
 				;;
+
+				*) G_DIETPI-NOTIFY 1 'An invalid "case" option was used. This is a bug, please report at: https://github.com/MichaIng/DietPi/issues'; exit 1;;
 
 			esac
 
@@ -508,7 +498,7 @@ If files are in the Target location that do not exist in the Source, they will b
 
 				else
 
-					declare -g $fp_mode="${G_WHIP_RETURNED_VALUE%/}"
+					declare -g "$fp_mode=${G_WHIP_RETURNED_VALUE%/}"
 					TARGETMENUID=0
 					return
 
@@ -537,7 +527,7 @@ If files are in the Target location that do not exist in the Source, they will b
 	# Generate optional user include/exclude file
 	if [[ ! -f $FP_USER_FILTER_INCLUDE_EXCLUDE ]]; then
 
-		cat << _EOF_ > $FP_USER_FILTER_INCLUDE_EXCLUDE
+		cat << _EOF_ > "$FP_USER_FILTER_INCLUDE_EXCLUDE"
 #$G_PROGRAM_NAME | Custom include/exclude filters
 #
 #To EXCLUDE (-) all files by name:
@@ -586,6 +576,6 @@ _EOF_
 	fi
 
 	#-----------------------------------------------------------------------------------
-	exit $EXIT_CODE
+	exit "$EXIT_CODE"
 	#-----------------------------------------------------------------------------------
 }

@@ -24,19 +24,15 @@
 	if grep -q '^[[:blank:]]*CONFIG_CHECK_DIETPI_UPDATES=1' /boot/dietpi.txt
 	then
 		/boot/dietpi/dietpi-update 2
-		[[ $APT_UPDATE_MODE == 2 && -f '/run/dietpi/.update_available' ]] && G_AGUP -f
+		[[ $APT_UPDATE_MODE == 2 && -f '/run/dietpi/.update_available' ]] && { . /boot/dietpi/func/dietpi-globals; G_AGUP -f; }
 
 	elif [[ $APT_UPDATE_MODE != 0 ]]
 	then
+		. /boot/dietpi/func/dietpi-globals
 		G_AGUP -f
 	fi
 	# Apply APT upgrades if chosen and available
-	if [[ $APT_UPDATE_MODE == 2 && -f '/run/dietpi/.apt_updates' ]]
-	then
-		apt-get -qq upgrade &> /var/tmp/dietpi/logs/dietpi-upgrade_apt.log
-		# Assure all services are up since APT upgrades might stop them
-		/boot/dietpi/dietpi-services start
-	fi
+	[[ $APT_UPDATE_MODE == 2 && -f '/run/dietpi/.apt_updates' ]] && apt-get -qq upgrade &> /var/tmp/dietpi/logs/dietpi-upgrade_apt.log
 	#----------------------------------------------------------------
 	# Sync DietPi-RAMlog to disk: https://github.com/MichaIng/DietPi/issues/4884
 	systemctl -q is-enabled dietpi-ramlog 2> /dev/null && /boot/dietpi/func/dietpi-ramlog 1

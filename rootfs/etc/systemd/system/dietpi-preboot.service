@@ -1,8 +1,7 @@
 [Unit]
 Description=DietPi-PreBoot
-# Order 2
-Wants=network-pre.target
 After=dietpi-ramlog.service
+Wants=network-pre.target
 Before=network-pre.target
 
 [Service]
